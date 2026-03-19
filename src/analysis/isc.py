@@ -1,6 +1,7 @@
 # ICA https://github.com/ML-D00M/ISC-Inter-Subject-Correlations/blob/main/Python/ISC.py
 from scipy.linalg import eigh
 import numpy as np
+from tqdm import tqdm
 
 def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     """Run Correlated Component Analysis on your training data.
@@ -30,7 +31,7 @@ def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     gamma = 0.1
     Rw: np.ndarray|None = None
     Rb: np.ndarray|None = None
-    for c, cond in data.items():
+    for c, cond in tqdm(data.items(), desc="Conditions"):
         (
             N,
             D,
@@ -43,14 +44,18 @@ def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
         Rij = np.swapaxes(np.reshape(np.cov(cond), (N, D, N, D)), 1, 2)
 
         # Rw
-        Rw = (Rw if Rw else 0) + np.mean([Rij[i, i, :, :] for i in range(0, N)], axis=0)
+        rw_blocks = np.empty((N, D, D))
+        for i in tqdm(range(N), desc="Rw blocks", leave=False):
+            rw_blocks[i] = Rij[i, i, :, :]
+        Rw = (Rw if Rw else 0) + np.mean(rw_blocks, axis=0)
 
         # Rb
-        Rb = (Rb if Rb else 0) + np.mean(
-            [Rij[i, j, :, :] for i in range(0, N) for j in range(0, N) if i != j],
-            axis=0,
-        )
-    
+        rb_pairs = [(i, j) for i in range(N) for j in range(N) if i != j]
+        rb_blocks = np.empty((len(rb_pairs), D, D))
+        for k, (i, j) in enumerate(tqdm(rb_pairs, desc="Rb blocks", leave=False)):
+            rb_blocks[k] = Rij[i, j, :, :]
+        Rb = (Rb if Rb else 0) + np.mean(rb_blocks, axis=0)
+
     if Rw is None or Rb is None:
         raise ValueError("Rw or Rb was not computed. Check if data is provided correctly.")
 
@@ -114,13 +119,18 @@ def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, st
     Rij = np.swapaxes(np.reshape(np.cov(X), (N, D, N, D)), 1, 2)
 
     # Rw
-    Rw = np.mean([Rij[i, i, :, :] for i in range(0, N)], axis=0)
+    rw_blocks = np.empty((N, D, D))
+    for i in range(N):
+        rw_blocks[i] = Rij[i, i, :, :]
+    Rw = np.mean(rw_blocks, axis=0)
     # Rw_reg = (1 - gamma) * Rw + gamma * np.mean(eigh(Rw)[0]) * np.identity(Rw.shape[0])
 
     # Rb
-    Rb = np.mean(
-        [Rij[i, j, :, :] for i in range(0, N) for j in range(0, N) if i != j], axis=0
-    )
+    rb_pairs = [(i, j) for i in range(N) for j in range(N) if i != j]
+    rb_blocks = np.empty((len(rb_pairs), D, D))
+    for k, (i, j) in enumerate(rb_pairs):
+        rb_blocks[k] = Rij[i, j, :, :]
+    Rb = np.mean(rb_blocks, axis=0)
 
     # ISCs
     ISC = np.sort(
@@ -134,26 +144,18 @@ def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, st
     # st.write("by subject is calculating")
     ISC_bysubject = np.empty((D, N))
 
-    for subj_k in range(0, N):
-        Rw, Rb = 0, 0
-        Rw = np.mean(
-            [
-                Rw
-                + 1 / (N - 1) * (Rij[subj_k, subj_k, :, :] + Rij[subj_l, subj_l, :, :])
-                for subj_l in range(0, N)
-                if subj_k != subj_l
-            ],
-            axis=0,
-        )
-        Rb = np.mean(
-            [
-                Rb
-                + 1 / (N - 1) * (Rij[subj_k, subj_l, :, :] + Rij[subj_l, subj_k, :, :])
-                for subj_l in range(0, N)
-                if subj_k != subj_l
-            ],
-            axis=0,
-        )
+    for subj_k in tqdm(range(N), desc="ISC by subject"):
+        rw_blocks = np.empty((N - 1, D, D))
+        rb_blocks = np.empty((N - 1, D, D))
+        k = 0
+        for subj_l in range(N):
+            if subj_l == subj_k:
+                continue
+            rw_blocks[k] = 1 / (N - 1) * (Rij[subj_k, subj_k, :, :] + Rij[subj_l, subj_l, :, :])
+            rb_blocks[k] = 1 / (N - 1) * (Rij[subj_k, subj_l, :, :] + Rij[subj_l, subj_k, :, :])
+            k += 1
+        Rw = np.mean(rw_blocks, axis=0)
+        Rb = np.mean(rb_blocks, axis=0)
 
         ISC_bysubject[:, subj_k] = np.diag(np.transpose(W) @ Rb @ W) / np.diag(
             np.transpose(W) @ Rw @ W
@@ -168,22 +170,28 @@ def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, st
     window_times = np.empty(n_windows)
     window_i = 0
 
-    for t in range(0, T - window_samples + 1, step_samples):
+    # Pre-compute index pairs for Rw/Rb blocks (same structure every window)
+    rw_idx = list(range(0, D * N, D))
+    rb_pairs_t = [(i, j) for i in range(0, D * N, D) for j in range(0, D * N, D) if i != j]
+    n_rw = len(rw_idx)
+    n_rb = len(rb_pairs_t)
+
+    for t in tqdm(range(0, T - window_samples + 1, step_samples), desc="ISC per window"):
         t_end = t + window_samples
         Xt = X[:, t : t_end]
         if Xt.shape[1] < 2:
             break
         Rij = np.cov(Xt)
-        Rw = np.mean([Rij[i : i + D, i : i + D] for i in range(0, D * N, D)], axis=0)
-        Rb = np.mean(
-            [
-                Rij[i : i + D, j : j + D]
-                for i in range(0, D * N, D)
-                for j in range(0, D * N, D)
-                if i != j
-            ],
-            axis=0,
-        )
+
+        rw_blocks_t = np.empty((n_rw, D, D))
+        for idx, i in enumerate(rw_idx):
+            rw_blocks_t[idx] = Rij[i : i + D, i : i + D]
+        Rw = np.mean(rw_blocks_t, axis=0)
+
+        rb_blocks_t = np.empty((n_rb, D, D))
+        for k, (i, j) in enumerate(rb_pairs_t):
+            rb_blocks_t[k] = Rij[i : i + D, j : j + D]
+        Rb = np.mean(rb_blocks_t, axis=0)
 
         ISC_persecond[:, window_i] = np.diag(np.transpose(W) @ Rb @ W) / np.diag(
             np.transpose(W) @ Rw @ W

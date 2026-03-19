@@ -1,8 +1,12 @@
 import os
 from typing import Literal
+from tqdm import tqdm
 
 import mne  # type: ignore
 from pathlib import Path
+
+# type alias for stimulus names
+StimulusName = Literal["StoryCorps_Q&A", "BangBangYouAreDead"]
 
 # Ear-EEG - exclude from 10-20 montage
 EAR_EEG_CHANNELS = [
@@ -30,12 +34,12 @@ EOG_CHANNELS = ["HL_EOG", "HR_EOG", "VA_EOG", "VB_EOG"]
 # scalp_channels = ['C3', 'C4', 'Cz', 'F3', 'F4', 'P3', 'P4', 'P7', 'P8', 'T7', 'T8', 'AFz']
 
 SUBJECT_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-STIMULI: list[Literal["StoryCorps_Q&A", "BangBangYouAreDead"]] = [
+STIMULI: list[StimulusName] = [
     "StoryCorps_Q&A",
     "BangBangYouAreDead",
 ]
 
-STIMULI_FILE_CODES: dict[Literal["StoryCorps_Q&A", "BangBangYouAreDead"], int] = {
+STIMULI_FILE_CODES: dict[StimulusName, int] = {
     "StoryCorps_Q&A": 71,
     "BangBangYouAreDead": 72,
 }
@@ -58,14 +62,14 @@ def validate_paths(data_dir: str, out_dir: str):
 def load_eeg(
     data_path: Path,
     subject_id: int,
-    stimulus: Literal["StoryCorps_Q&A", "BangBangYouAreDead"],
+    stimulus: StimulusName,
 ) -> mne.io.Raw:
     """Load EEG data for a given subject and stimulus.
 
     Args:
         data_path (Path): The path to the directory containing EEG data.
         subject_id (int): The ID of the subject (e.g., 1, 2, ...).
-        stimulus (str): The stimulus name, either 'StoryCorps_Q&A' or 'BangBangYouAreDead'.
+        stimulus (StimulusName): The stimulus name.
 
     Returns:
         mne.io.Raw: The loaded EEG data.
@@ -100,7 +104,7 @@ def load_eeg(
 def load_preprocessed_eeg(
     data_path: Path,
     subject_id: int,
-    stimulus: Literal["StoryCorps_Q&A", "BangBangYouAreDead"],
+    stimulus: StimulusName,
 ) -> mne.io.Raw:
     """Load preprocessed EEG data for a given subject and stimulus."""
     file_code = STIMULI_FILE_CODES[stimulus]
@@ -114,17 +118,20 @@ def load_preprocessed_eeg(
 def load_all_eeg(
     data_path: Path,
     preprocessed: bool = False,
-) -> dict[Literal["StoryCorps_Q&A", "BangBangYouAreDead"], dict[int, mne.io.Raw]]:
+) -> dict[StimulusName, dict[int, mne.io.Raw]]:
     """Load all EEG data for all subjects for both stimuli."""
-    all_data: dict[
-        Literal["StoryCorps_Q&A", "BangBangYouAreDead"], dict[int, mne.io.Raw]
-    ] = {
-        stimulus: {
-            subject_id: load_preprocessed_eeg(data_path, subject_id, stimulus)
-            if preprocessed
-            else load_eeg(data_path, subject_id, stimulus)
-            for subject_id in SUBJECT_IDS
-        }
-        for stimulus in STIMULI
-    }
+    all_data: dict[StimulusName, dict[int, mne.io.Raw]] = {}
+
+    for stimulus in STIMULI:
+        all_data[stimulus] = {}
+        for subject_id in tqdm(SUBJECT_IDS, desc=f"Loading {stimulus}"):
+            if preprocessed:
+                all_data[stimulus][subject_id] = load_preprocessed_eeg(
+                    data_path, subject_id, stimulus
+                )
+            else:
+                all_data[stimulus][subject_id] = load_eeg(
+                    data_path, subject_id, stimulus
+                )
+
     return all_data
