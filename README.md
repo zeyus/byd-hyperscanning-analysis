@@ -95,7 +95,13 @@ Once the preprocessing is done, you will have the data in e.g. `./out/{file_name
 
 ## Interactive Inter-Subject Correlation Analysis notebook
 
-There is an interactive Jupyter notebook at `notebooks/isc_analysis.ipynb` that has sections for loading and exploring the preprocessed data for each stimulus.
+There is an interactive Jupyter notebook at [`notebooks/isc_analysis.ipynb`](notebooks/isc_analysis.ipynb) that has sections for loading and exploring the preprocessed data for each stimulus. You can see a preview of the notebook in [`notebooks/isc_analysis.html`](notebooks/isc_analysis.html).
+
+The notebook should use the ipykernel from the UV virtual environment, you can run it using the following command from the project directory (or open it in your editor/IDE of choice and select the uv venv kernel):
+
+```bash
+uv run jupyter lab notebooks/isc_analysis.ipynb
+```
 
 The notebook also can run the inter-subject correlation for a selected stimulus and (optionally) a subset of participants. The notebook displays the ISC results and the topographic projections of the components. It can also create a timeseries of the data projected through the weights of a selected component.
 
