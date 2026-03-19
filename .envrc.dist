@@ -4,5 +4,5 @@ export EEG_DATA_PATH=
 export EEG_DATA_PATH_ORIGINAL=
 # Path to stimuli videos and extracted features
 export EEG_STIMULI_PATH=
-# Path to save composited stimuli features and plots
-export STIMULI_COMPOSITE_FEATURES_PATH=
+# Path to save outputs and intermediate files
+export EEG_WORK_DIR=

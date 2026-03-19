@@ -10,3 +10,4 @@ wheels/
 .venv
 .envrc
 out/
+.mypy_cache/
