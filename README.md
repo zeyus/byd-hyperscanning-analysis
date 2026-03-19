@@ -43,5 +43,9 @@ uv sync
 
 # Usage
 
+## Scripts
+
+There is one script in the `scripts` directory, `frame_analysis.fish`, which is a fish shell script that extracts audiovisual features from the stimuli videos, it's not necessary to run this script because the features are already extracted, but if you want to run it it requires `ffmpeg`/`ffprobe`.
+
 
 

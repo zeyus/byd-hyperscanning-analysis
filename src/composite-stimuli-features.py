@@ -3,6 +3,17 @@ import numpy as np
 from pathlib import Path
 from matplotlib import pyplot as plt
 from argparse import ArgumentParser
+import os
+
+stimuli = {
+    "BangBangYouAreDead": "BangBangYouAreDead_SerialTrigInterval-1sec",
+    "StoryCorps_Q&A": "StoryCorps_Q&A_SerialTrigInterval-1sec",
+}
+stimuli_suffixes = {
+    "luminance": "luminance",
+    "amplitude": "amplitude",
+    "loudness": "loudness(EBUR128,LUFS)"
+}
 
 def load_and_interpolate_to_reference(
     file_path: Path, 
@@ -24,32 +35,25 @@ def load_and_interpolate_to_reference(
 
 
 def main(data_dir: Path, out_dir: Path):
-    out_dir.mkdir(exist_ok=True)
-    
-    stimuli = {
-        "BangBangYouAreDead": "BangBangYouAreDead_SerialTrigInterval-1sec",
-        "StoryCorps_Q&A": "StoryCorps_Q&A_SerialTrigInterval-1sec",
-    }
-    
     for stimulus_name, file_base in stimuli.items():
         # Load video luminance first as the reference timebase
-        lum_df = pd.read_csv(data_dir / f"{file_base}-luminance.csv", header=None)
+        lum_df = pd.read_csv(data_dir / f"{file_base}-{stimuli_suffixes['luminance']}.csv", header=None)
         lum_df = lum_df.drop(columns=[0])  # drop 'frame' literal
-        lum_df.columns = ['timestamp', 'min_lum', 'mean_lum', 'max_lum', 'diff_lum']
+        lum_df.columns = ['timestamp', 'min_lum', 'mean_lum', 'max_lum', 'diff_lum']  # type: ignore
         
         reference_timestamps = lum_df['timestamp'].values
         
         # Interpolate audio amplitude to video timestamps
         amp_df = load_and_interpolate_to_reference(
-            data_dir / f"{file_base}-amplitude.csv",
-            reference_timestamps,
+            data_dir / f"{file_base}-{stimuli_suffixes['amplitude']}.csv",
+            reference_timestamps,  # type: ignore
             ['amp_rms', 'amp_peak']
         )
         
         # Interpolate loudness to video timestamps
         loud_df = load_and_interpolate_to_reference(
-            data_dir / f"{file_base}-loudness(EBUR128,LUFS).csv",
-            reference_timestamps,
+            data_dir / f"{file_base}-{stimuli_suffixes['loudness']}.csv",
+            reference_timestamps,  # type: ignore
             ['ebu_r128_M']
         )
         
@@ -102,10 +106,30 @@ def main(data_dir: Path, out_dir: Path):
         print(f"Saved plot to {plot_file}")
         plt.close()
 
+def validate_paths(data_dir: Path, out_dir: Path):
+    out_dir.mkdir(exist_ok=True)
+
+    if not data_dir.exists() or not data_dir.is_dir():
+        raise FileNotFoundError(f"Data directory {data_dir} does not exist or is not a directory.")
+    
+    for _, file_base in stimuli.items():
+        for suffix in stimuli_suffixes.values():
+            file_path = data_dir / f"{file_base}-{suffix}.csv"
+            if not file_path.exists():
+                raise FileNotFoundError(f"Required file {file_path} does not exist.")
+
+    return True
+
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Composite Stimuli Features")
-    parser.add_argument("--data_dir", type=Path, required=True, help="Directory containing input files")
-    parser.add_argument("--out_dir", type=Path, required=False, help="Directory to save output files", default="./out")
+    parser.add_argument("--data_dir", type=Path, required=False, help="Directory containing simuli features", default=os.getenv("EEG_STIMULI_PATH", "./data/stimuli"))
+    parser.add_argument("--out_dir", type=Path, required=False, help="Directory to save composited stimuli features", default=os.getenv("STIMULI_COMPOSITE_FEATURES_PATH", "./out"))
     args = parser.parse_args()
+    try:
+        validate_paths(args.data_dir, args.out_dir)
+    except Exception as e:
+        print(f"Error validating paths: {e}")
+        exit(1)
+    main(args.data_dir, args.out_dir)
 

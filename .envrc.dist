@@ -1,0 +1,8 @@
+# Path to EEG hyperscanning data
+export EEG_DATA_PATH=
+# Path to original data including EarEEG (optional)
+export EEG_DATA_PATH_ORIGINAL=
+# Path to stimuli videos and extracted features
+export EEG_STIMULI_PATH=
+# Path to save composited stimuli features and plots
+export STIMULI_COMPOSITE_FEATURES_PATH=
