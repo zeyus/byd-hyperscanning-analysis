@@ -120,4 +120,33 @@ uv run jupyter lab notebooks/isc_analysis.ipynb
 
 The notebook also can run the inter-subject correlation for a selected stimulus and (optionally) a subset of participants. The notebook displays the ISC results and the topographic projections of the components. It can also create a timeseries of the data projected through the weights of a selected component.
 
-*note* The resulting time series units are not in microvolts, rather in relative units.
+**Note:** The resulting time series units are not in microvolts, rather in relative units.
+
+### Interactive Notebook Items
+
+After you have run through the cells, there are several interactive elements in the notebook that can be used to specify parameters for plotting and ISC analysis.
+
+#### Data Exploration
+
+<img width="1265" height="1774" alt="image" src="https://github.com/user-attachments/assets/126831a2-8551-4f5d-8336-bbdaa2f50ef0" />
+
+#### ISC Analysis
+
+<img width="2216" height="1739" alt="image" src="https://github.com/user-attachments/assets/1dce5637-b24f-4316-b1e3-a7b5acb6cddd" />
+
+#### Component Inspection
+
+Topographical projection of components
+
+<img width="1626" height="1469" alt="image" src="https://github.com/user-attachments/assets/311840e6-d4d1-45fe-8a88-a9031f94fdea" />
+
+#### Apply component as a spatial filter
+
+The resulting data is available in the `component_data` variable.
+
+<img width="2108" height="876" alt="image" src="https://github.com/user-attachments/assets/7d1a90e1-7a80-436a-900f-e09422c50f27" />
+
+
+
+
+
