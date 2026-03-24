@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 .envrc
+.env
 out/
 .mypy_cache/
 .ipynb_checkpoints/

@@ -35,6 +35,21 @@ If you want to use [direnv](https://direnv.net/) it can automatically load envir
   direnv allow
   ```
 
+## Without direnv
+
+You can create a `.envrc` file for the project, and add it to UV run commands like so:
+
+- Copy the default configuration file, and make changes as appropriate:
+  ```bash
+  cp .envrc.dist .envrc
+  # Open .envrc in your editor and update the values as needed
+  ```
+
+For `uv run` commands, you will need to specify the `--env-file` flag to load the environment variables from the `.envrc` file, for example:
+```bash
+uv run --env-file .envrc python src/preprocess-data.py -h
+```
+
 ## Create a virtual environment and install dependencies
 
 ```bash
@@ -61,7 +76,7 @@ uv run python src/remove-eareeg-channels.py --validate-only
 This combines the audio and visual features into a single CSV file for each stimulus, by default this saves to the `./out` directory, but you can change this by setting the `EEG_WORK_DIR` environment variable in your `.envrc` file.
 
 ```bash
-uv run python src/combine-stimuli-features.py
+uv run python src/composite-stimuli-features.py
 ```
 
 ## Preprocess EEG data
@@ -69,7 +84,7 @@ uv run python src/combine-stimuli-features.py
 This preprocesses the EEG data by applying a bandpass filter, eog regression and removing outlier samples, and saves the preprocessed data to disk. By default this saves to the `./out` directory, but you can change this by setting the `EEG_WORK_DIR` environment variable in your `.envrc` file.
 
 ```bash
-uv run python src/preprocess_eeg.py
+uv run python src/preprocess-data.py
 ```
 
 Usage: Note, `data-dir` and `out-dir` will default to the values of `EEG_DATA_PATH` and `EEG_WORK_DIR` environment variables respectively, so you only need to specify them if you want to override those defaults.
