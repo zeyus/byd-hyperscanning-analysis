@@ -3,6 +3,7 @@ from scipy.linalg import eigh
 import numpy as np
 from tqdm import tqdm
 
+
 def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     """Run Correlated Component Analysis on your training data.
 
@@ -29,8 +30,8 @@ def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     # st.write(f"train_cca - calculations started. There are {C} conditions")
 
     gamma = 0.1
-    Rw: np.ndarray|None = None
-    Rb: np.ndarray|None = None
+    Rw: np.ndarray | None = None
+    Rb: np.ndarray | None = None
     for c, cond in tqdm(data.items(), desc="Conditions"):
         (
             N,
@@ -57,7 +58,9 @@ def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
         Rb = (Rb if Rb else 0) + np.mean(rb_blocks, axis=0)
 
     if Rw is None or Rb is None:
-        raise ValueError("Rw or Rb was not computed. Check if data is provided correctly.")
+        raise ValueError(
+            "Rw or Rb was not computed. Check if data is provided correctly."
+        )
 
     # Divide by number of condition
     Rw, Rb = Rw / C, Rb / C
@@ -77,7 +80,14 @@ def train_cca(data: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     return W, ISC
 
 
-def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, step_sec: float = 1.0, Cz_index: int | None = None):
+def apply_cca(
+    X: np.ndarray,
+    W: np.ndarray,
+    fs: int,
+    window_sec: float = 5.0,
+    step_sec: float = 1.0,
+    Cz_index: int | None = None,
+):
     """Applying precomputed spatial filters to your data.
 
     Parameters:
@@ -151,8 +161,12 @@ def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, st
         for subj_l in range(N):
             if subj_l == subj_k:
                 continue
-            rw_blocks[k] = 1 / (N - 1) * (Rij[subj_k, subj_k, :, :] + Rij[subj_l, subj_l, :, :])
-            rb_blocks[k] = 1 / (N - 1) * (Rij[subj_k, subj_l, :, :] + Rij[subj_l, subj_k, :, :])
+            rw_blocks[k] = (
+                1 / (N - 1) * (Rij[subj_k, subj_k, :, :] + Rij[subj_l, subj_l, :, :])
+            )
+            rb_blocks[k] = (
+                1 / (N - 1) * (Rij[subj_k, subj_l, :, :] + Rij[subj_l, subj_k, :, :])
+            )
             k += 1
         Rw = np.mean(rw_blocks, axis=0)
         Rb = np.mean(rb_blocks, axis=0)
@@ -172,13 +186,17 @@ def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, st
 
     # Pre-compute index pairs for Rw/Rb blocks (same structure every window)
     rw_idx = list(range(0, D * N, D))
-    rb_pairs_t = [(i, j) for i in range(0, D * N, D) for j in range(0, D * N, D) if i != j]
+    rb_pairs_t = [
+        (i, j) for i in range(0, D * N, D) for j in range(0, D * N, D) if i != j
+    ]
     n_rw = len(rw_idx)
     n_rb = len(rb_pairs_t)
 
-    for t in tqdm(range(0, T - window_samples + 1, step_samples), desc="ISC per window"):
+    for t in tqdm(
+        range(0, T - window_samples + 1, step_samples), desc="ISC per window"
+    ):
         t_end = t + window_samples
-        Xt = X[:, t : t_end]
+        Xt = X[:, t:t_end]
         if Xt.shape[1] < 2:
             break
         Rij = np.cov(Xt)
@@ -207,3 +225,125 @@ def apply_cca(X: np.ndarray, W: np.ndarray, fs: int, window_sec: float = 5.0, st
     window_times = window_times[:window_i]
 
     return ISC, ISC_persecond, ISC_bysubject, A, window_times
+
+
+def compute_surrogate_chance_level(
+    X: np.ndarray,
+    W: np.ndarray,
+    fs: int,
+    window_sec: float = 5.0,
+    step_sec: float = 1.0,
+    n_permutations: int = 200,
+    p_threshold: float = 0.01,
+    n_comp: int | None = None,
+    rng: np.random.Generator | None = None,
+) -> np.ndarray:
+    """Estimate per-window chance-level ISC via time-shifted surrogate data.
+
+    Each subject's projected timeseries is independently circularly shifted by
+    a random amount, destroying cross-subject temporal alignment while
+    preserving single-subject spectral and autocorrelation structure.  ISC is
+    computed on the shifted data for every window position across many
+    permutations to build a per-window null distribution.
+
+    The returned threshold varies over time (one value per window), matching
+    the grey area shown in Poulsen et al. (2017): "chance levels for ISC
+    (p > 0.01 estimated with time-shuffled surrogate data, uncorrected for
+    multiple comparisons)".
+
+    Parameters
+    ----------
+    X : ndarray, shape (N, D, T)
+        EEG data: N subjects, D channels, T samples.
+    W : ndarray, shape (D, D)
+        Spatial filters from :func:`train_cca`.
+    fs : int
+        Sampling frequency in Hz.
+    window_sec : float
+        Analysis window length in seconds.  Must match the :func:`apply_cca`
+        call whose output you want to threshold.
+    step_sec : float
+        Step size in seconds.  Must match the :func:`apply_cca` call.
+    n_permutations : int
+        Number of surrogate permutations.  200 is usually sufficient for
+        p = 0.01; use ≥ 500 for p = 0.001.
+    p_threshold : float
+        Significance level (default ``0.01``).  At each window, values above
+        the returned threshold occur less than ``p_threshold * 100 %`` of the
+        time by chance.
+    n_comp : int or None
+        Number of CCA components to evaluate.  Defaults to all columns of W.
+    rng : np.random.Generator or None
+        Optional seeded RNG for reproducible results, e.g.
+        ``np.random.default_rng(42)``.
+
+    Returns
+    -------
+    chance_level : ndarray, shape (n_comp, n_windows)
+        Per-component, per-window ISC threshold.  Plot
+        ``fill_between(times, 0, chance_level[c])`` to draw the grey band
+        used in Poulsen et al. (2017).
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    N, _D, T = X.shape
+    window_samples = int(window_sec * fs)
+    step_samples = max(1, int(step_sec * fs))
+
+    if n_comp is None:
+        n_comp = W.shape[1]
+    Wc = W[:, :n_comp]  # (D, n_comp)
+
+    # Project all subjects into component space once: (N, n_comp, T)
+    Y = np.einsum("dc,ndt->nct", Wc, X)
+
+    # Require shifts large enough to avoid temporal self-overlap
+    min_shift = window_samples
+    max_shift = T - min_shift
+    if max_shift <= min_shift:
+        raise ValueError(
+            f"Recording too short ({T} samples) for circular-shift surrogates "
+            f"with window_samples={window_samples}. Use a shorter window."
+        )
+
+    # Pre-build index pairs once
+    rw_slices = [(i * n_comp, (i + 1) * n_comp) for i in range(N)]
+    rb_pairs_idx = [
+        (i * n_comp, (i + 1) * n_comp, j * n_comp, (j + 1) * n_comp)
+        for i in range(N)
+        for j in range(N)
+        if i != j
+    ]
+
+    # null_isc accumulates shape (n_permutations, n_windows, n_comp)
+    null_isc_list: list[np.ndarray] = []
+
+    for _ in tqdm(range(n_permutations), desc="Surrogate permutations"):
+        # Independent circular shift per subject (preserves autocorrelation)
+        shifts = rng.integers(min_shift, max_shift, size=N)
+        Y_shifted = np.stack(
+            [np.roll(Y[i], int(shifts[i]), axis=-1) for i in range(N)]
+        )  # (N, n_comp, T)
+
+        Y_flat = Y_shifted.reshape(N * n_comp, T)
+
+        perm_isc: list[np.ndarray] = []
+        for t in range(0, T - window_samples + 1, step_samples):
+            Yw = Y_flat[:, t : t + window_samples]
+            Rij = np.cov(Yw)  # (N*n_comp, N*n_comp)
+
+            Rw = np.mean([Rij[s:e, s:e] for s, e in rw_slices], axis=0)
+            Rb = np.mean([Rij[si:ei, sj:ej] for si, ei, sj, ej in rb_pairs_idx], axis=0)
+
+            perm_isc.append(np.diag(Rb) / np.diag(Rw))
+
+        if perm_isc:
+            null_isc_list.append(np.array(perm_isc))  # (n_windows, n_comp)
+
+    # null_isc: (n_permutations, n_windows, n_comp)
+    null_isc = np.stack(null_isc_list, axis=0)
+
+    # One-tailed per-window threshold: (1 - p_threshold) quantile across permutations
+    # Result shape: (n_windows, n_comp) → transpose to (n_comp, n_windows)
+    return np.quantile(null_isc, 1.0 - p_threshold, axis=0).T
