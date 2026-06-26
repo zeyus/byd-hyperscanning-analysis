@@ -24,6 +24,7 @@ dependencies = [
     "scipy>=1.17.1",
     "scipy-stubs>=1.17.1.2",
     "seaborn>=0.13.2",
+    "svgpathtools>=1.7.2",
     "tqdm>=4.67.3",
     "tqdm-stubs>=0.2.1",
 ]
