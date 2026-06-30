@@ -16,7 +16,6 @@ a CSV and a comparison figure is saved alongside it.
 
 import argparse
 import re
-import sys
 import xml.etree.ElementTree as ET
 
 import matplotlib.pyplot as plt
@@ -63,7 +62,7 @@ def sample_path(d_attr, n_samples=1000):
     total = path.length()
     ts = np.linspace(0, 1, n_samples)
     pts = np.array([path.point(t) for t in ts])
-    return pts.real, pts.imag  # x, y
+    return pts.real, pts.imag  # x, y  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def sample_horizontal_line(d_attr):
@@ -122,7 +121,11 @@ def extract_all(svg_path, n_samples=1204):
 
     # ── timeseries paths ──────────────────────────────────────────────────
     results = {}
-    for series_id in ("dmochowski_timeseries", "poulsen_timeseries"):
+    for series_id in (
+        "dmochowski_timeseries",
+        "poulsen_timeseries",
+        "chance_estimate_timeseries",
+    ):
         el = find_by_id(root, series_id)
         xs, ys = sample_path(el.get("d"), n_samples=n_samples)
 
@@ -184,11 +187,16 @@ def plot_series(x_grid, resampled, out_png="timeseries_comparison.png"):
     labels = {
         "dmochowski_timeseries": "Dmochowski et al.",
         "poulsen_timeseries": "Poulsen et al.",
+        "chance_estimate_timeseries": "Chance estimate (Poulsen et al.)",
+        "lab_results": "Present Study",
+        "lab_chance_estimate": "Chance estimate (Present Study)",
     }
     colours = {
         "dmochowski_timeseries": "#1f77b4",
         "poulsen_timeseries": "#d90000",
+        "chance_estimate_timeseries": "#ff7f0e",
         "lab_results": "#2ca02c",
+        "lab_chance_estimate": "#9467bd",
     }
     for name, vals in resampled.items():
         ax.plot(
@@ -239,9 +247,13 @@ def main():
         "--lab-data", help="Optional .npy or .csv with lab results ISC timeseries"
     )
     parser.add_argument(
+        "--lab-chance",
+        help="Optional .npy or .csv with lab results chance estimate timeseries",
+    )
+    parser.add_argument(
         "--n-samples",
         type=int,
-        default=1200,
+        default=360,
         help="Points to sample per SVG path (default 2000)",
     )
     parser.add_argument(
@@ -259,17 +271,33 @@ def main():
     # Optionally add your own data
     if args.lab_data:
         if args.lab_data.endswith(".npy"):
-            your_vals = np.load(args.lab_data)
+            lab_timeseries = np.load(args.lab_data)
         else:
-            your_vals = np.genfromtxt(args.lab_data, delimiter=",")
+            lab_timeseries = np.genfromtxt(args.lab_data, delimiter=",")
         # Assign a synthetic x-range that spans the same domain as the others
         x_min = min(xs.min() for xs, _ in series.values())
         x_max = max(xs.max() for xs, _ in series.values())
-        your_xs = np.linspace(x_min, x_max, len(your_vals))
-        series["lab_results"] = (your_xs, your_vals)
+        your_xs = np.linspace(x_min, x_max, len(lab_timeseries))
+        series["lab_results"] = (your_xs, lab_timeseries)
         print(
-            f"lab_results: {len(your_vals)} points, "
-            f"val ∈ [{your_vals.min():.3f}, {your_vals.max():.3f}]"
+            f"lab_results: {len(lab_timeseries)} points, "
+            f"val ∈ [{lab_timeseries.min():.3f}, {lab_timeseries.max():.3f}]"
+        )
+
+    if args.lab_chance:
+        if args.lab_chance.endswith(".npy"):
+            lab_chance_ts = np.load(args.lab_chance)
+        else:
+            lab_chance_ts = np.genfromtxt(args.lab_chance, delimiter=",")
+        print(lab_chance_ts.shape)
+        # Assign a synthetic x-range that spans the same domain as the others
+        x_min = min(xs.min() for xs, _ in series.values())
+        x_max = max(xs.max() for xs, _ in series.values())
+        your_xs = np.linspace(x_min, x_max, len(lab_chance_ts))
+        series["lab_chance_estimate"] = (your_xs, lab_chance_ts)
+        print(
+            f"lab_chance_estimate: {len(lab_chance_ts)} points, "
+            f"val ∈ [{lab_chance_ts.min():.3f}, {lab_chance_ts.max():.3f}]"
         )
 
     x_grid, resampled = resample_to_common_grid(series, n_grid=args.n_grid)

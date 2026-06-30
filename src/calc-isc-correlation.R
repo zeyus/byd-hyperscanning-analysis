@@ -10,7 +10,7 @@ library(lmerTest)
 library(zoo)
 
 
-csv_isc_1sec_timeseries <- read_csv("../out/isc_comparison.csv")
+csv_isc_1sec_timeseries <- read_csv("../in/isc_comparison.csv")
 csv_isc_1sec_timeseries
 csv_isc_1sec_timeseries$second <- 1:360
 
@@ -18,17 +18,17 @@ dmochowsky_col <- "dmochowski_timeseries"
 poulsen_col <- "poulsen_timeseries"
 
 kappel_dat_seg <- npyLoad(
-  "../out/isc_results_byd_segment_isc_component1_bywindow.npy"
+  "../in/isc_results_bangbangyouaredead_segment_isc_component1_bywindow.npy"
 )
 kappel_dat_seg_chance <- npyLoad(
-  "../out/isc_results_byd_segment_chance_level.npy"
+  "../in/isc_results_bangbangyouaredead_segment_chance_comp1.npy"
 )
 
 kappel_dat_full <- npyLoad(
-  "../out/isc_results_byd_full_isc_component1_bywindow.npy"
+  "../in/isc_results_bangbangyouaredead_full_isc_component1_bywindow.npy"
 )
 kappel_dat_full_chance <- npyLoad(
-  "../out/isc_results_byd_full_chance_level.npy"
+  "../in/isc_results_bangbangyouaredead_full_chance_comp1.npy"
 )
 
 length(kappel_dat_seg)
@@ -81,13 +81,23 @@ peak_corr_poulsen_y <- max(sliding_correlation_poulsen, na.rm = TRUE)
 peak_corr_dm_x <- which.max(sliding_correlation)
 peak_corr_poulsen_x <- which.max(sliding_correlation_poulsen)
 
+print(
+  paste0(
+    "Peak correlation with Dmochowski et al: ",
+    peak_corr_dm_y,
+    " at ",
+    peak_corr_dm_x,
+    "s"
+  )
+)
+
 # plot the rolling correlation results
 plot(
   sliding_correlation,
   type = "l",
   col = "blue",
   ylim = c(-1, 1),
-  xlab = "Time (s)",
+  xlab = "6-minute Rolling window start time (s)",
   ylab = "Correlation",
   main = "Rolling Correlation: Kappel (full), Dmochowski, Poulsen"
 )
@@ -127,9 +137,19 @@ text(
 legend(
   "topright",
   legend = c(
-    "Kappel et al vs Dmochowski et al",
-    "Kappel et al vs Poulsen et al"
+    "Present v Dmochowski et al",
+    "Present v Poulsen et al"
   ),
   col = c("blue", "red"),
   lty = 1
 )
+
+# save figure
+dev.copy(
+  png,
+  "../out/rolling_correlation_full.png",
+  width = 2000,
+  height = 1600,
+  res = 300
+)
+dev.off()
