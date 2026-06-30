@@ -7,10 +7,10 @@ them to a common x-grid, and computes pairwise Pearson correlations.
 Usage
 -----
 python extract_timeseries.py traced_timeseries_plain.svg \
-    [--your-data your_results.npy] \
+    [--lab-data lab_results.npy] \
     [--output-csv timeseries.csv]
 
-All three series (Dmochowski, Poulsen, optionally yours) are written to
+All three series (Dmochowski, Poulsen, optionally lab results) are written to
 a CSV and a comparison figure is saved alongside it.
 """
 
@@ -143,7 +143,7 @@ def extract_all(svg_path, n_samples=1204):
 # ── Resampling to a common grid ───────────────────────────────────────────────
 
 
-def resample_to_common_grid(series_dict, n_grid=1204):
+def resample_to_common_grid(series_dict, n_grid=360):
     """
     Interpolate each series onto a shared x-grid spanning the overlapping
     x-range of all series.
@@ -188,7 +188,7 @@ def plot_series(x_grid, resampled, out_png="timeseries_comparison.png"):
     colours = {
         "dmochowski_timeseries": "#1f77b4",
         "poulsen_timeseries": "#d90000",
-        "your_results": "#2ca02c",
+        "lab_results": "#2ca02c",
     }
     for name, vals in resampled.items():
         ax.plot(
@@ -203,8 +203,8 @@ def plot_series(x_grid, resampled, out_png="timeseries_comparison.png"):
     ax.axhline(0.1, color="#888", linewidth=0.8, linestyle="--", label="0.1 ref")
     ax.axhline(0.2, color="#555", linewidth=0.8, linestyle="--", label="0.2 ref")
 
-    ax.set_ylabel("ISC (Pearson r)")
-    ax.set_xlabel("Time (SVG x-units; proportional to actual time)")
+    ax.set_ylabel("ISC")
+    ax.set_xlabel("Time")
     ax.set_title("Digitised ISC timeseries comparison")
     ax.legend(loc="upper right", fontsize=8)
     ax.grid(True, alpha=0.3)
@@ -236,18 +236,18 @@ def main():
     parser = argparse.ArgumentParser(description="Extract & compare SVG timeseries")
     parser.add_argument("svg", help="Path to the Inkscape SVG file")
     parser.add_argument(
-        "--your-data", help="Optional .npy or .csv with your ISC timeseries"
+        "--lab-data", help="Optional .npy or .csv with lab results ISC timeseries"
     )
     parser.add_argument(
         "--n-samples",
         type=int,
-        default=1204,
+        default=1200,
         help="Points to sample per SVG path (default 2000)",
     )
     parser.add_argument(
         "--n-grid",
         type=int,
-        default=1204,
+        default=360,
         help="Points in the common resampling grid (default 1000)",
     )
     parser.add_argument("--output-csv", default="timeseries.csv")
@@ -257,18 +257,18 @@ def main():
     series, y2val = extract_all(args.svg, n_samples=args.n_samples)
 
     # Optionally add your own data
-    if args.your_data:
-        if args.your_data.endswith(".npy"):
-            your_vals = np.load(args.your_data)
+    if args.lab_data:
+        if args.lab_data.endswith(".npy"):
+            your_vals = np.load(args.lab_data)
         else:
-            your_vals = np.genfromtxt(args.your_data, delimiter=",")
+            your_vals = np.genfromtxt(args.lab_data, delimiter=",")
         # Assign a synthetic x-range that spans the same domain as the others
         x_min = min(xs.min() for xs, _ in series.values())
         x_max = max(xs.max() for xs, _ in series.values())
         your_xs = np.linspace(x_min, x_max, len(your_vals))
-        series["your_results"] = (your_xs, your_vals)
+        series["lab_results"] = (your_xs, your_vals)
         print(
-            f"your_results: {len(your_vals)} points, "
+            f"lab_results: {len(your_vals)} points, "
             f"val ∈ [{your_vals.min():.3f}, {your_vals.max():.3f}]"
         )
 
