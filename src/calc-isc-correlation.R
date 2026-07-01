@@ -16,6 +16,7 @@ csv_isc_1sec_timeseries$second <- 1:360
 
 dmochowsky_col <- "dmochowski_timeseries"
 poulsen_col <- "poulsen_timeseries"
+poulsen_chance_col <- "chance_estimate_timeseries"
 
 kappel_dat_seg <- npyLoad(
   "../in/isc_results_bangbangyouaredead_segment_isc_component1_bywindow.npy"
@@ -175,6 +176,103 @@ plt <- df_sliding |>
   theme_minimal()
 ggsave(
   "../out/rolling_correlation_full_ggplot.png",
+  width = 10,
+  height = 6,
+  dpi = 300
+)
+
+
+# plot the ISC timeseries from the present study and the reference studies
+# including chance level from poulsen and the present study
+
+label_vals <- c(
+  "Poulsen et al (chance)",
+  "Dmochowski et al",
+  "Poulsen et al",
+  "Present study (chance)",
+  "Present study"
+)
+
+df_isc <- data.frame(
+  time = rep(1:360, 5),
+  isc = c(
+    csv_isc_1sec_timeseries[[poulsen_chance_col]],
+    csv_isc_1sec_timeseries[[dmochowsky_col]],
+    csv_isc_1sec_timeseries[[poulsen_col]],
+    kappel_dat_seg_chance,
+    kappel_dat_seg
+  ),
+  study = rep(
+    label_vals,
+    each = 360
+  )
+)
+
+df_isc$study <- factor(
+  df_isc$study,
+  levels = label_vals
+)
+
+# set  plot colors
+color_dmochowski <- "#1f77b4aa" # blue
+color_poulsen <- "#ff7f0eaa" # orange
+color_poulsen_chance <- "#aa2f0e66" # orange
+color_kappel <- "#000000ff" # green
+color_kappel_chance <- "#202020aa" # green
+
+# plot the ISC timeseries from the present study and the reference studies
+plt_isc <- df_isc |>
+  ggplot(aes(time, isc, color = study, linetype = study, linewidth = study)) +
+  geom_line() +
+  labs(
+    x = "Stimulus Elapsed Time (s)",
+    y = "ISC",
+    title = "ISC timeseries from present study and reference studies",
+    subtitle = "Including chance level from Poulsen et al and present study"
+  ) +
+  # add legend
+  scale_color_manual(
+    name = "Study",
+    values = c(
+      color_poulsen_chance,
+      color_dmochowski,
+      color_poulsen,
+      color_kappel_chance,
+      color_kappel
+    )
+  ) +
+  scale_linetype_manual(
+    name = "Study",
+    values = c(
+      "solid",
+      "solid",
+      "solid",
+      "solid",
+      "solid"
+    )
+  ) +
+  scale_linewidth_manual(
+    name = "Study",
+    values = c(
+      0.2,
+      0.5,
+      0.5,
+      0.2,
+      0.9
+    )
+  ) +
+  theme_minimal(
+    base_size = 14
+  ) +
+  theme(
+    legend.position = c(.9, .9),
+    legend.background = element_rect(fill = "white", color = "black"),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10),
+    legend.box.just = "right"
+  )
+ggsave(
+  "../out/isc_timeseries_comparison_ggplot.png",
   width = 10,
   height = 6,
   dpi = 300

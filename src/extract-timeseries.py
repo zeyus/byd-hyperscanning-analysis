@@ -59,7 +59,7 @@ def sample_path(d_attr, n_samples=1000):
     user-space units (before any group transform is applied).
     """
     path = parse_path(d_attr)
-    total = path.length()
+    # total = path.length()
     ts = np.linspace(0, 1, n_samples)
     pts = np.array([path.point(t) for t in ts])
     return pts.real, pts.imag  # x, y  # pyright: ignore[reportAttributeAccessIssue]

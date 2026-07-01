@@ -1,11 +1,12 @@
-from argparse import ArgumentParser
 import os
+from argparse import ArgumentParser
 from pathlib import Path
 
-import numpy as np
-from data import eeg
 import mne  # type: ignore
+import numpy as np
 from tqdm import tqdm
+
+from data import eeg
 
 
 def get_trigger_sample(raw: mne.io.Raw, trigger_id: int | None = None) -> int:
@@ -56,8 +57,7 @@ def align_recordings(
         Number of samples removed from the end for each subject.
     """
     trigger_samples = {
-        sid: get_trigger_sample(raw, trigger_id)
-        for sid, raw in subject_data.items()
+        sid: get_trigger_sample(raw, trigger_id) for sid, raw in subject_data.items()
     }
 
     min_offset = min(trigger_samples.values())
@@ -87,9 +87,9 @@ def show_trigger_info(data_dir: str) -> None:
     mne.utils.set_log_level("WARNING")
 
     for stimulus, subject_data in all_eeg_data.items():
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Stimulus: {stimulus}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         for subject_id, raw in subject_data.items():
             sfreq = raw.info["sfreq"]
             events, event_id = mne.events_from_annotations(raw, verbose="error")
@@ -100,7 +100,9 @@ def show_trigger_info(data_dir: str) -> None:
                     events = mne.find_events(raw, verbose="error")
                     event_id = {str(v): v for v in np.unique(events[:, 2])}
 
-            print(f"\n  Subject {subject_id}  ({raw.n_times} samples, {raw.n_times / sfreq:.1f} s)")
+            print(
+                f"\n  Subject {subject_id}  ({raw.n_times} samples, {raw.n_times / sfreq:.1f} s)"
+            )
             if len(events) == 0:
                 print("    No trigger events found.")
                 continue
@@ -185,8 +187,12 @@ def preprocess_eeg_data(
     mne.utils.set_log_level("WARNING")
 
     for stimulus, subject_data in all_eeg_data.items():
-        print(f"\nStimulus '{stimulus}' - aligning {len(subject_data)} recordings by trigger...")
-        start_crops, end_crops = align_recordings(subject_data, trigger_id=align_trigger_id)
+        print(
+            f"\nStimulus '{stimulus}' - aligning {len(subject_data)} recordings by trigger..."
+        )
+        start_crops, end_crops = align_recordings(
+            subject_data, trigger_id=align_trigger_id
+        )
         for sid in subject_data:
             alignment_crops[stimulus].append((sid, start_crops[sid], end_crops[sid]))
             if start_crops[sid] or end_crops[sid]:
@@ -219,7 +225,9 @@ def preprocess_eeg_data(
                     raw.info, eeg=True, eog=False, meg=False, exclude="bads"
                 )
                 percentiles = np.percentile(
-                    abs(raw.get_data(verbose="error")), [25, 75], axis=1
+                    abs(raw.get_data(verbose="error")),  # pyright: ignore[reportArgumentType]
+                    [25, 75],
+                    axis=1,
                 )
                 bad_samples_count = 0
                 for ch_idx in eeg_channel_indices:
@@ -233,9 +241,9 @@ def preprocess_eeg_data(
                         end = min(len(data), sample + int(0.04 * raw.info["sfreq"]))
                         data[start:end] = 0
                         bad_samples_count += end - start
-                    raw._data[ch_idx, :] = data
+                    raw._data[ch_idx, :] = data  # pyright: ignore[reportOptionalSubscript]
                 zeroed_outlier_sample_count[stimulus].append(
-                    (subject_id, bad_samples_count)
+                    (subject_id, bad_samples_count)  # pyright: ignore[reportArgumentType]
                 )
 
             log_power = np.log(np.std(raw.get_data(verbose="error"), axis=1))
