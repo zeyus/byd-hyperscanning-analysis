@@ -269,7 +269,8 @@ plt_isc <- df_isc |>
     legend.background = element_rect(fill = "white", color = "black"),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 10),
-    legend.box.just = "right"
+    legend.box.just = "right",
+    legend.margin = margin(2, 2, 2, 2)
   )
 ggsave(
   "../out/isc_timeseries_comparison_ggplot.png",
