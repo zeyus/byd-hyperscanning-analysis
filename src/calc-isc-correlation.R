@@ -2,7 +2,7 @@
 # between ISC results from the same stimuli
 # across independent groups of subjects from
 # different labs and equipment
-install.packages(c("zoo", "RcppCNPy", "tidyverse", "lme4", "lmerTest"))
+# install.packages(c("zoo", "RcppCNPy", "tidyverse", "lme4", "lmerTest"))
 library(RcppCNPy)
 library(tidyverse)
 library(lme4)
@@ -91,65 +91,91 @@ print(
   )
 )
 
-# plot the rolling correlation results
-plot(
-  sliding_correlation,
-  type = "l",
-  col = "blue",
-  ylim = c(-1, 1),
-  xlab = "6-minute Rolling window start time (s)",
-  ylab = "Correlation",
-  main = "Rolling Correlation: Kappel (full), Dmochowski, Poulsen"
-)
-lines(sliding_correlation_poulsen, col = "red")
-# mark the peak correlation points
-points(peak_corr_dm_x, peak_corr_dm_y, col = "blue", pch = 19)
-points(peak_corr_poulsen_x, peak_corr_poulsen_y, col = "red", pch = 19)
 
-# label with value and time
-text(
-  peak_corr_dm_x,
-  peak_corr_dm_y + 0.05,
-  labels = paste0(
-    "Peak: ",
-    round(peak_corr_dm_y, 3),
-    " at ",
-    peak_corr_dm_x,
-    "s"
-  ),
-  pos = 3,
-  col = "blue"
-)
-text(
-  peak_corr_poulsen_x,
-  peak_corr_poulsen_y,
-  labels = paste0(
-    "Peak: ",
-    round(peak_corr_poulsen_y, 3),
-    " at ",
-    peak_corr_poulsen_x,
-    "s"
-  ),
-  pos = 3,
-  col = "red"
+# same plot as above but using ggplot instead
+
+# set pleasent plot colors
+color_dmochowski <- "#1f77b4" # blue
+color_poulsen <- "#646464" # orange
+sliding_correlation
+
+df_sliding <- data.frame(
+  time = rep(seq_along(sliding_correlation), 2),
+  corr = c(sliding_correlation, sliding_correlation_poulsen),
+  study = rep(
+    c("Dmochowski et al", "Poulsen et al"),
+    each = length(sliding_correlation)
+  )
 )
 
-legend(
-  "topright",
-  legend = c(
-    "Present v Dmochowski et al",
-    "Present v Poulsen et al"
-  ),
-  col = c("blue", "red"),
-  lty = 1
+df_sliding$study <- factor(
+  df_sliding$study,
+  levels = c("Dmochowski et al", "Poulsen et al")
 )
 
-# save figure
-dev.copy(
-  png,
-  "../out/rolling_correlation_full.png",
-  width = 2000,
-  height = 1600,
-  res = 300
+plt <- df_sliding |>
+  ggplot(aes(time, corr, color = study)) +
+  geom_line() +
+  annotate(
+    "text",
+    x = peak_corr_dm_x + 10,
+    y = peak_corr_dm_y,
+    label = paste0(
+      "Dmochowski peak:\n",
+      round(peak_corr_dm_y, 3),
+      " at ",
+      peak_corr_dm_x,
+      "s"
+    ),
+    color = color_dmochowski,
+    hjust = 0
+  ) +
+  annotate(
+    "point",
+    x = peak_corr_dm_x,
+    y = peak_corr_dm_y,
+    color = color_dmochowski,
+    size = 3
+  ) +
+  annotate(
+    "text",
+    x = peak_corr_poulsen_x - 10,
+    y = peak_corr_poulsen_y,
+    label = paste0(
+      "Poulsen peak:\n",
+      round(peak_corr_poulsen_y, 3),
+      " at ",
+      peak_corr_poulsen_x,
+      "s"
+    ),
+    color = color_poulsen,
+    hjust = 1
+  ) +
+  annotate(
+    "point",
+    x = peak_corr_poulsen_x,
+    y = peak_corr_poulsen_y,
+    color = color_poulsen,
+    size = 3
+  ) +
+  labs(
+    x = "Rolling window start time (s)",
+    y = "Correlation",
+    title = "Windowed correlation of present study with reference studies",
+    subtitle = "Rolling window size: 360s"
+  ) +
+  # add legend
+  scale_color_manual(
+    name = "Reference Study",
+    values = c(
+      color_dmochowski,
+      color_poulsen
+    )
+  ) +
+  theme_minimal()
+ggsave(
+  "../out/rolling_correlation_full_ggplot.png",
+  width = 10,
+  height = 6,
+  dpi = 300
 )
-dev.off()
