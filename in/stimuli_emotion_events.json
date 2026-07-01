@@ -1,0 +1,25 @@
+{
+  "byd": {
+    "weird_mask": 139,
+    "gun_mother": 441,
+    "gun_mother_father": 471,
+    "gun_postman": 505,
+    "gun_loading": 664,
+    "next_bullet": 746,
+    "gun_girl": 814,
+    "more_loading": 847,
+    "even_more_loading": 957,
+    "gun_shopkeeper": 1014,
+    "gun_maid": 1217,
+    "gun_fire": 1225
+  },
+  "sc": {
+    "diagnosis_text": 16,
+    "cocroaches_snakes": 48,
+    "life_hopeless": 61,
+    "baby": 104,
+    "son_you_wanted": 164,
+    "made_you_parent": 183,
+    "lucky_to_have_you": 209
+  }
+}
