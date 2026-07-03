@@ -25,9 +25,9 @@ import argparse
 import json
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from analysis import stats_utils
 
@@ -35,19 +35,37 @@ from analysis import stats_utils
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--isc-dir", type=Path, default=Path("in"))
-    p.add_argument("--stimulus", required=True, help="Filename stimulus key, e.g. bangbangyouaredead or storycorps_q&a")
-    p.add_argument("--range-tag", default="full", help="'full' or 'segment', matches the ISC filename")
+    p.add_argument(
+        "--stimulus",
+        required=True,
+        help="Filename stimulus key, e.g. bangbangyouaredead or storycorps_q&a",
+    )
+    p.add_argument(
+        "--range-tag",
+        default="full",
+        help="'full' or 'segment', matches the ISC filename",
+    )
     p.add_argument("--components", type=int, nargs="+", default=[1, 2, 3])
-    p.add_argument("--events-json", type=Path, default=Path("in/stimuli_emotion_events.json"))
-    p.add_argument("--event-group", required=True, help="Key into the events JSON, e.g. byd or sc")
+    p.add_argument(
+        "--events-json", type=Path, default=Path("in/stimuli_emotion_events.json")
+    )
+    p.add_argument(
+        "--event-group", required=True, help="Key into the events JSON, e.g. byd or sc"
+    )
     p.add_argument("--window-sec", type=float, default=5.0)
     p.add_argument("--step-sec", type=float, default=1.0)
     p.add_argument("--baseline-sec", type=float, default=5.0)
     p.add_argument("--response-sec", type=float, default=5.0)
-    p.add_argument("--tail", choices=["greater", "less", "two-sided"], default="greater")
+    p.add_argument(
+        "--tail", choices=["greater", "less", "two-sided"], default="greater"
+    )
     p.add_argument("--fdr-alpha", type=float, default=0.05)
-    p.add_argument("--output-csv", type=Path, default=Path("out/event_locked_isc_stats.csv"))
-    p.add_argument("--output-plot", type=Path, default=Path("out/event_locked_isc_stats.png"))
+    p.add_argument(
+        "--output-csv", type=Path, default=Path("out/event_locked_isc_stats.csv")
+    )
+    p.add_argument(
+        "--output-plot", type=Path, default=Path("out/event_locked_isc_stats.png")
+    )
     return p.parse_args()
 
 
@@ -93,27 +111,44 @@ def main() -> None:
         events = json.load(f)[args.event_group]
     event_names = list(events.keys())
     onsets = np.array([float(events[name]) for name in event_names])
-    print(f"Loaded {len(event_names)} events for group '{args.event_group}': {event_names}")
+    print(
+        f"Loaded {len(event_names)} events for group '{args.event_group}': {event_names}"
+    )
 
     rows = []
-    fig, axes = plt.subplots(len(args.components), 1, figsize=(13, 3.2 * len(args.components)), squeeze=False)
+    fig, axes = plt.subplots(
+        len(args.components), 1, figsize=(13, 3.2 * len(args.components)), squeeze=False
+    )
 
     for ci, comp in enumerate(args.components):
-        isc_path = args.isc_dir / f"isc_results_{args.stimulus}_{args.range_tag}_isc_component{comp}_bywindow.npy"
+        isc_path = (
+            args.isc_dir
+            / f"isc_results_{args.stimulus}_{args.range_tag}_isc_component{comp}_bywindow.npy"
+        )
         isc_values = stats_utils.load_isc_bywindow(isc_path)
-        window_times = stats_utils.reconstruct_window_times(len(isc_values), args.window_sec, args.step_sec)
+        window_times = stats_utils.reconstruct_window_times(
+            len(isc_values), args.window_sec, args.step_sec
+        )
 
-        observed = per_event_stats(isc_values, window_times, onsets, args.baseline_sec, args.response_sec)
+        observed = per_event_stats(
+            isc_values, window_times, onsets, args.baseline_sec, args.response_sec
+        )
         observed_aggregate = np.nanmean(observed)
 
         def statistic_fn(shifted: np.ndarray) -> np.ndarray:
-            return per_event_stats(shifted, window_times, onsets, args.baseline_sec, args.response_sec)
+            return per_event_stats(
+                shifted, window_times, onsets, args.baseline_sec, args.response_sec
+            )
 
-        null = stats_utils.circular_shift_null(isc_values, statistic_fn)  # (n_shifts, n_events)
+        null = stats_utils.circular_shift_null(
+            isc_values, statistic_fn
+        )  # (n_shifts, n_events)
         null_aggregate = np.nanmean(null, axis=1)  # (n_shifts,)
 
         p_events = stats_utils.exact_pvalue(observed, null, tail=args.tail)
-        p_aggregate = stats_utils.exact_pvalue(np.array(observed_aggregate), null_aggregate, tail=args.tail)
+        p_aggregate = stats_utils.exact_pvalue(
+            np.array(observed_aggregate), null_aggregate, tail=args.tail
+        )
 
         rows.append(
             {
@@ -128,8 +163,12 @@ def main() -> None:
             }
         )
         for name, t0, diff, p in zip(event_names, onsets, observed, p_events):
-            baseline = windowed_mean(isc_values, window_times, t0 - args.baseline_sec, t0)
-            response = windowed_mean(isc_values, window_times, t0, t0 + args.response_sec)
+            baseline = windowed_mean(
+                isc_values, window_times, t0 - args.baseline_sec, t0
+            )
+            response = windowed_mean(
+                isc_values, window_times, t0, t0 + args.response_sec
+            )
             rows.append(
                 {
                     "stimulus": args.stimulus,
@@ -146,7 +185,9 @@ def main() -> None:
         # ── Plot ──────────────────────────────────────────────────────────
         ax = axes[ci, 0]
         color = _COMP_COLORS[ci % len(_COMP_COLORS)]
-        ax.plot(window_times, isc_values, color=color, linewidth=1.2, label=f"Comp {comp}")
+        ax.plot(
+            window_times, isc_values, color=color, linewidth=1.2, label=f"Comp {comp}"
+        )
         for name, t0, p in zip(event_names, onsets, p_events):
             ax.axvline(t0, color="gray", linewidth=0.8, linestyle="--", alpha=0.6)
         ax.axhline(0, color="black", linewidth=0.5, linestyle=":")
@@ -162,7 +203,10 @@ def main() -> None:
     df = pd.DataFrame(rows)
     # FDR across all (component, event) pairs, excluding the aggregate rows
     per_event_mask = df["event_name"] != "__aggregate__"
-    q, sig = stats_utils.benjamini_hochberg(df.loc[per_event_mask, "p_exact"].values, alpha=args.fdr_alpha)
+    q, sig = stats_utils.benjamini_hochberg(
+        df.loc[per_event_mask, "p_exact"].values,  # pyright: ignore[reportArgumentType]
+        alpha=args.fdr_alpha,
+    )
     df["p_fdr"] = np.nan
     df["significant"] = False
     df.loc[per_event_mask, "p_fdr"] = q
@@ -175,7 +219,14 @@ def main() -> None:
         ymax = np.nanmax(axes[ci, 0].lines[0].get_ydata())
         for _, r in comp_rows.iterrows():
             if r["significant"]:
-                ax.text(r["onset_s"], ymax * 1.05, "*", ha="center", fontsize=14, color="red")
+                ax.text(
+                    r["onset_s"],
+                    ymax * 1.05,
+                    "*",
+                    ha="center",
+                    fontsize=14,
+                    color="red",
+                )
         ax.legend(loc="upper right", fontsize=9)
 
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -188,10 +239,24 @@ def main() -> None:
     print(f"Saved plot to {args.output_plot}")
 
     print("\n=== Aggregate (confirmatory) results ===")
-    print(df[df["event_name"] == "__aggregate__"][["component", "diff", "p_exact"]].to_string(index=False))
+    print(
+        df[df["event_name"] == "__aggregate__"][
+            ["component", "diff", "p_exact"]
+        ].to_string(index=False)
+    )
     print("\n=== Per-event (exploratory, FDR-corrected) results ===")
     print(
-        df[per_event_mask][["component", "event_name", "onset_s", "diff", "p_exact", "p_fdr", "significant"]]
+        df[per_event_mask][
+            [
+                "component",
+                "event_name",
+                "onset_s",
+                "diff",
+                "p_exact",
+                "p_fdr",
+                "significant",
+            ]
+        ]
         .sort_values(["component", "onset_s"])
         .to_string(index=False)
     )

@@ -1,6 +1,6 @@
 # ICA https://github.com/ML-D00M/ISC-Inter-Subject-Correlations/blob/main/Python/ISC.py
-from scipy.linalg import eigh
 import numpy as np
+from scipy.linalg import eigh
 from tqdm import tqdm
 
 
@@ -308,9 +308,9 @@ def compute_surrogate_chance_level(
         )
 
     # Pre-build index pairs once
-    rw_slices = [(i * n_comp, (i + 1) * n_comp) for i in range(N)]
+    rw_slices = [(i * n_comp, (i + 1) * n_comp) for i in range(N)]  # pyright: ignore[reportOperatorIssue]
     rb_pairs_idx = [
-        (i * n_comp, (i + 1) * n_comp, j * n_comp, (j + 1) * n_comp)
+        (i * n_comp, (i + 1) * n_comp, j * n_comp, (j + 1) * n_comp)  # pyright: ignore[reportOperatorIssue]
         for i in range(N)
         for j in range(N)
         if i != j
