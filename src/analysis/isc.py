@@ -227,6 +227,58 @@ def apply_cca(
     return ISC, ISC_persecond, ISC_bysubject, A, window_times
 
 
+def _phase_randomize_multivariate(
+    y: np.ndarray, rng: np.random.Generator
+) -> np.ndarray:
+    """Prichard & Theiler (1994) multivariate phase-randomized surrogate.
+
+    Generates a surrogate of a multivariate signal that preserves each row's
+    amplitude spectrum (hence its autocorrelation / power spectrum) and the
+    *cross-row* covariance structure, while destroying absolute timing.  A
+    single random phase sequence is drawn and added to every row at each
+    frequency (Theiler's "same phase across variables" trick), so the phase
+    *differences* between rows -- and therefore their covariance -- are left
+    intact.  Applied independently to each subject, this destroys only the
+    between-subject alignment that drives ISC, giving the ISC null.
+
+    This is the surrogate family used by Poulsen et al. (2017); operating here
+    on the projected components (rather than the raw channels of the original
+    MATLAB implementation) is equivalent, because applying a common per-subject
+    phase across the components of ``W'X`` is, by linearity of the projection,
+    the same as applying it across the channels of ``X`` and then projecting.
+
+    Reference: Prichard D, Theiler J. Generating surrogate data for time series
+    with several simultaneously measured variables. Phys Rev Lett. 1994;73(7):951.
+
+    Parameters
+    ----------
+    y : ndarray, shape (M, T)
+        Real-valued multivariate signal (e.g. components x samples for one
+        subject).  Randomization is over the T axis; the M rows share phases.
+    rng : np.random.Generator
+        Random generator supplying the phases.
+
+    Returns
+    -------
+    ndarray, shape (M, T)
+        Real-valued surrogate with the same per-row amplitude spectrum and the
+        same cross-row covariance as ``y``.
+    """
+    _M, T = y.shape
+    Yf = np.fft.rfft(y, axis=1)  # (M, n_freq) complex
+    n_freq = Yf.shape[1]
+
+    # Random phases in (-pi, pi], shared across the M rows, one per frequency.
+    # DC (bin 0) is always left untouched; for even T the Nyquist bin (last)
+    # must stay real, so it is left untouched too.
+    phases = np.zeros(n_freq)
+    hi = n_freq - 1 if (T % 2 == 0) else n_freq
+    phases[1:hi] = rng.uniform(-np.pi, np.pi, size=hi - 1)
+
+    Yf = Yf * np.exp(1j * phases)[np.newaxis, :]
+    return np.fft.irfft(Yf, n=T, axis=1)
+
+
 def compute_surrogate_chance_level(
     X: np.ndarray,
     W: np.ndarray,
@@ -237,14 +289,30 @@ def compute_surrogate_chance_level(
     p_threshold: float = 0.01,
     n_comp: int | None = None,
     rng: np.random.Generator | None = None,
+    method: str = "circular",
 ) -> np.ndarray:
-    """Estimate per-window chance-level ISC via time-shifted surrogate data.
+    """Estimate per-window chance-level ISC via surrogate data.
 
-    Each subject's projected timeseries is independently circularly shifted by
-    a random amount, destroying cross-subject temporal alignment while
-    preserving single-subject spectral and autocorrelation structure.  ISC is
-    computed on the shifted data for every window position across many
-    permutations to build a per-window null distribution.
+    Two surrogate families are available via ``method``; both target the *same*
+    null hypothesis -- each subject keeps its own temporal and spatial structure
+    while cross-subject alignment (the source of genuine ISC) is destroyed -- and
+    differ only in how they do it:
+
+    * ``"circular"`` (default): each subject's projected timeseries is
+      independently circularly shifted by a random amount.  Preserves the exact
+      waveform, amplitude distribution, and non-stationarity of each subject;
+      destroys alignment by rigid time translation.
+    * ``"phase"``: each subject is independently phase-randomized following
+      Prichard & Theiler (1994), the family used by Poulsen et al. (2017).
+      Preserves each subject's amplitude spectrum (hence autocorrelation) and
+      cross-component covariance, but replaces the signal with the equivalent
+      linear-Gaussian process, so transients and non-linear/non-stationary
+      structure are washed out.
+
+    ISC is computed on the surrogate data for every window position across many
+    permutations to build a per-window null distribution.  Which family gives a
+    stricter (higher) threshold is data-dependent and should be treated as an
+    empirical result, not assumed in advance.
 
     The returned threshold varies over time (one value per window), matching
     the grey area shown in Poulsen et al. (2017): "chance levels for ISC
@@ -276,6 +344,10 @@ def compute_surrogate_chance_level(
     rng : np.random.Generator or None
         Optional seeded RNG for reproducible results, e.g.
         ``np.random.default_rng(42)``.
+    method : {"circular", "phase"}
+        Surrogate family (see above).  ``"circular"`` is the time-shift method;
+        ``"phase"`` is Prichard & Theiler (1994) multivariate phase
+        randomization, matching Poulsen et al. (2017).
 
     Returns
     -------
@@ -286,6 +358,8 @@ def compute_surrogate_chance_level(
     """
     if rng is None:
         rng = np.random.default_rng()
+    if method not in ("circular", "phase"):
+        raise ValueError(f"Unknown method {method!r}; expected 'circular' or 'phase'.")
 
     N, _D, T = X.shape
     window_samples = int(window_sec * fs)
@@ -298,10 +372,11 @@ def compute_surrogate_chance_level(
     # Project all subjects into component space once: (N, n_comp, T)
     Y = np.einsum("dc,ndt->nct", Wc, X)
 
-    # Require shifts large enough to avoid temporal self-overlap
+    # For circular shifts, require shifts large enough to avoid temporal
+    # self-overlap.  Phase randomization has no such constraint.
     min_shift = window_samples
     max_shift = T - min_shift
-    if max_shift <= min_shift:
+    if method == "circular" and max_shift <= min_shift:
         raise ValueError(
             f"Recording too short ({T} samples) for circular-shift surrogates "
             f"with window_samples={window_samples}. Use a shorter window."
@@ -319,14 +394,23 @@ def compute_surrogate_chance_level(
     # null_isc accumulates shape (n_permutations, n_windows, n_comp)
     null_isc_list: list[np.ndarray] = []
 
-    for _ in tqdm(range(n_permutations), desc="Surrogate permutations"):
-        # Independent circular shift per subject (preserves autocorrelation)
-        shifts = rng.integers(min_shift, max_shift, size=N)
-        Y_shifted = np.stack(
-            [np.roll(Y[i], int(shifts[i]), axis=-1) for i in range(N)]
-        )  # (N, n_comp, T)
+    for _ in tqdm(range(n_permutations), desc=f"Surrogate permutations ({method})"):
+        if method == "circular":
+            # Independent circular shift per subject (preserves autocorrelation
+            # and the exact waveform; destroys cross-subject alignment).
+            shifts = rng.integers(min_shift, max_shift, size=N)
+            Y_surrogate = np.stack(
+                [np.roll(Y[i], int(shifts[i]), axis=-1) for i in range(N)]
+            )  # (N, n_comp, T)
+        else:  # method == "phase"
+            # Independent multivariate phase randomization per subject
+            # (Prichard & Theiler 1994; preserves each subject's amplitude
+            # spectrum and cross-component covariance, destroys alignment).
+            Y_surrogate = np.stack(
+                [_phase_randomize_multivariate(Y[i], rng) for i in range(N)]
+            )  # (N, n_comp, T)
 
-        Y_flat = Y_shifted.reshape(N * n_comp, T)
+        Y_flat = Y_surrogate.reshape(N * n_comp, T)
 
         perm_isc: list[np.ndarray] = []
         for t in range(0, T - window_samples + 1, step_samples):
