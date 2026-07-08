@@ -10,7 +10,7 @@ library(lmerTest)
 library(zoo)
 
 
-csv_isc_1sec_timeseries <- read_csv("../in/isc_comparison.csv")
+csv_isc_1sec_timeseries <- read_csv("../data/isc_comparison.csv")
 csv_isc_1sec_timeseries
 csv_isc_1sec_timeseries$second <- 1:360
 
@@ -19,17 +19,17 @@ poulsen_col <- "poulsen_timeseries"
 poulsen_chance_col <- "chance_estimate_timeseries"
 
 kappel_dat_seg <- npyLoad(
-  "../in/isc_results_bangbangyouaredead_segment_isc_component1_bywindow.npy"
+  "../out/03_ISC_results/byd/segment/isc_component1_bywindow.npy"
 )
 kappel_dat_seg_chance <- npyLoad(
-  "../in/isc_results_bangbangyouaredead_segment_chance_comp1.npy"
+  "../out/03_ISC_results/byd/segment/chance_comp1.npy"
 )
 
 kappel_dat_full <- npyLoad(
-  "../in/isc_results_bangbangyouaredead_full_isc_component1_bywindow.npy"
+  "../out/03_ISC_results/byd/full/isc_component1_bywindow.npy"
 )
 kappel_dat_full_chance <- npyLoad(
-  "../in/isc_results_bangbangyouaredead_full_chance_comp1.npy"
+  "../out/03_ISC_results/byd/full/chance_comp1.npy"
 )
 
 length(kappel_dat_seg)
@@ -175,7 +175,7 @@ plt <- df_sliding |>
   ) +
   theme_minimal()
 ggsave(
-  "../out/rolling_correlation_full_ggplot.png",
+  "../out/06_figures/rolling_correlation_full_ggplot.png",
   width = 10,
   height = 6,
   dpi = 300
@@ -273,7 +273,7 @@ plt_isc <- df_isc |>
     legend.margin = margin(2, 2, 2, 2)
   )
 ggsave(
-  "../out/isc_timeseries_comparison_ggplot.png",
+  "../out/06_figures/isc_timeseries_comparison_ggplot.png",
   width = 10,
   height = 6,
   dpi = 300

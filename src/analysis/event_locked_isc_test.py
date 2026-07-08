@@ -1,6 +1,6 @@
 """Test whether ISC rises around emotionally salient moments in a stimulus.
 
-For each labeled event onset in in/stimuli_emotion_events.json, compares mean
+For each labeled event onset in data/stimuli_emotion_events.json, compares mean
 ISC in a post-onset "response" window against a pre-onset "baseline" window,
 per CCA component. Significance is assessed with an exact circular-shift
 permutation test on the ISC by-window timeseries itself: the whole ISC series
@@ -31,23 +31,31 @@ import pandas as pd
 
 from analysis import stats_utils
 
+STIM_KEYS = {"bangbangyouaredead": "byd", "storycorps_q&a": "sc"}
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--isc-dir", type=Path, default=Path("in"))
+    p.add_argument(
+        "--isc-dir",
+        type=Path,
+        default=None,
+        help="Defaults to out/03_ISC_results/{stim_key}/{range_tag}",
+    )
     p.add_argument(
         "--stimulus",
         required=True,
+        choices=sorted(STIM_KEYS),
         help="Filename stimulus key, e.g. bangbangyouaredead or storycorps_q&a",
     )
     p.add_argument(
         "--range-tag",
         default="full",
-        help="'full' or 'segment', matches the ISC filename",
+        help="'full' or 'segment', matches the ISC directory produced by compute_isc.py",
     )
     p.add_argument("--components", type=int, nargs="+", default=[1, 2, 3])
     p.add_argument(
-        "--events-json", type=Path, default=Path("in/stimuli_emotion_events.json")
+        "--events-json", type=Path, default=Path("data/stimuli_emotion_events.json")
     )
     p.add_argument(
         "--event-group", required=True, help="Key into the events JSON, e.g. byd or sc"
@@ -61,12 +69,27 @@ def parse_args() -> argparse.Namespace:
     )
     p.add_argument("--fdr-alpha", type=float, default=0.05)
     p.add_argument(
-        "--output-csv", type=Path, default=Path("out/event_locked_isc_stats.csv")
+        "--output-csv",
+        type=Path,
+        default=None,
+        help="Defaults to out/05_event_correlation/event_locked_isc_stats_{event-group}.csv",
     )
     p.add_argument(
-        "--output-plot", type=Path, default=Path("out/event_locked_isc_stats.png")
+        "--output-plot",
+        type=Path,
+        default=None,
+        help="Defaults to out/05_event_correlation/event_locked_isc_stats_{event-group}.png",
     )
-    return p.parse_args()
+    args = p.parse_args()
+
+    stim_key = STIM_KEYS[args.stimulus]
+    if args.isc_dir is None:
+        args.isc_dir = Path("out/03_ISC_results") / stim_key / args.range_tag
+    if args.output_csv is None:
+        args.output_csv = Path("out/05_event_correlation") / f"event_locked_isc_stats_{args.event_group}.csv"
+    if args.output_plot is None:
+        args.output_plot = Path("out/05_event_correlation") / f"event_locked_isc_stats_{args.event_group}.png"
+    return args
 
 
 _COMP_COLORS = ["black", "#cc0000", "#1f77b4", "#2ca02c", "#9467bd"]
@@ -107,10 +130,24 @@ def per_event_stats(
 def main() -> None:
     args = parse_args()
 
+    meta = stats_utils.load_isc_meta(args.isc_dir)
+    window_sec = meta["window_sec"] if meta else args.window_sec
+    step_sec = meta["step_sec"] if meta else args.step_sec
+    t0_s = meta["t0_s"] if meta else 0.0
+
     with open(args.events_json) as f:
-        events = json.load(f)[args.event_group]
-    event_names = list(events.keys())
-    onsets = np.array([float(events[name]) for name in event_names])
+        stimulus_groups = json.load(f)
+    try:
+        group = next(
+            g for g in stimulus_groups if g["stimulus"] == args.event_group
+        )
+    except StopIteration:
+        available = [g["stimulus"] for g in stimulus_groups]
+        raise ValueError(
+            f"Event group {args.event_group!r} not found. Available: {available}"
+        )
+    event_names = [e["event"] for e in group["events"]]
+    onsets = np.array([float(e["event_time_s"]) for e in group["events"]])
     print(
         f"Loaded {len(event_names)} events for group '{args.event_group}': {event_names}"
     )
@@ -121,13 +158,10 @@ def main() -> None:
     )
 
     for ci, comp in enumerate(args.components):
-        isc_path = (
-            args.isc_dir
-            / f"isc_results_{args.stimulus}_{args.range_tag}_isc_component{comp}_bywindow.npy"
-        )
+        isc_path = args.isc_dir / f"isc_component{comp}_bywindow.npy"
         isc_values = stats_utils.load_isc_bywindow(isc_path)
         window_times = stats_utils.reconstruct_window_times(
-            len(isc_values), args.window_sec, args.step_sec
+            len(isc_values), window_sec, step_sec, t0_s
         )
 
         observed = per_event_stats(

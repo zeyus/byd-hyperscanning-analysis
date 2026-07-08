@@ -13,3 +13,4 @@ wheels/
 out/
 .mypy_cache/
 .ipynb_checkpoints/
+*.bak

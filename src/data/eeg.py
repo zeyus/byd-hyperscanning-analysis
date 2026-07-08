@@ -44,6 +44,12 @@ STIMULI_FILE_CODES: dict[StimulusName, int] = {
     "BangBangYouAreDead": 72,
 }
 
+# Short, filesystem-safe keys used for output directory names
+STIMULUS_SHORT_KEYS: dict[StimulusName, str] = {
+    "StoryCorps_Q&A": "sc",
+    "BangBangYouAreDead": "byd",
+}
+
 EEG_FILE_FORMAT = "{file_code}_HS1{subject_id:02d}_{stimulus}.set"
 PREPROCESSED_FILE_FORMAT = (
     "{file_code}_HS1{subject_id:02d}_{stimulus}_preprocessed_eeg.fif"
@@ -119,15 +125,22 @@ def load_all_eeg(
     data_path: Path,
     preprocessed: bool = False,
 ) -> dict[StimulusName, dict[int, mne.io.Raw]]:
-    """Load all EEG data for all subjects for both stimuli."""
+    """Load all EEG data for all subjects for both stimuli.
+
+    When `preprocessed=True`, `data_path` is treated as the base
+    `02_preprocessed_eeg_data` directory, with each stimulus's files under its
+    own `STIMULUS_SHORT_KEYS[stimulus]` subdirectory (as written by
+    `preprocess-data.py`), rather than a single flat directory.
+    """
     all_data: dict[StimulusName, dict[int, mne.io.Raw]] = {}
 
     for stimulus in STIMULI:
         all_data[stimulus] = {}
+        stim_path = data_path / STIMULUS_SHORT_KEYS[stimulus] if preprocessed else data_path
         for subject_id in tqdm(SUBJECT_IDS, desc=f"Loading {stimulus}"):
             if preprocessed:
                 all_data[stimulus][subject_id] = load_preprocessed_eeg(
-                    data_path, subject_id, stimulus
+                    stim_path, subject_id, stimulus
                 )
             else:
                 all_data[stimulus][subject_id] = load_eeg(

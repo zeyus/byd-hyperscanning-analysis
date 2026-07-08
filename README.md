@@ -58,6 +58,11 @@ uv sync
 
 # Usage
 
+See [`docs/PIPELINE.md`](docs/PIPELINE.md) for the full ordered pipeline (output
+directory structure, every CLI invocation from raw data to final stats/figures)
+— that's the reproducible path. The sections below give a quick summary; the
+notebook further down is for interactive exploration only.
+
 ## Scripts
 
 There is one script in the `scripts` directory, `frame_analysis.fish`, which is a fish shell script that extracts audiovisual features from the stimuli videos, it's not necessary to run this script because the features are already extracted, but if you want to run it it requires `ffmpeg`/`ffprobe`.
@@ -73,7 +78,7 @@ uv run python src/remove-eareeg-channels.py --validate-only
 
 ## Combine / Composite stimli features
 
-This combines the audio and visual features into a single CSV file for each stimulus, by default this saves to the `./out` directory, but you can change this by setting the `EEG_WORK_DIR` environment variable in your `.envrc` file.
+This combines the audio and visual features into a single CSV file for each stimulus, by default this saves to `./out/01_extracted_stim_features/{byd,sc}/`, under the `EEG_WORK_DIR` directory (see `.envrc.dist`).
 
 ```bash
 uv run python src/composite-stimuli-features.py
@@ -81,7 +86,7 @@ uv run python src/composite-stimuli-features.py
 
 ## Preprocess EEG data
 
-This preprocesses the EEG data by applying a bandpass filter, eog regression and removing outlier samples, and saves the preprocessed data to disk. By default this saves to the `./out` directory, but you can change this by setting the `EEG_WORK_DIR` environment variable in your `.envrc` file.
+This preprocesses the EEG data by applying a bandpass filter, eog regression and removing outlier samples, and saves the preprocessed data to disk. By default this saves to `./out/02_preprocessed_eeg_data/{byd,sc}/`, under the `EEG_WORK_DIR` directory.
 
 ```bash
 uv run python src/preprocess-data.py
@@ -106,11 +111,22 @@ options:
 
 ```
 
-Once the preprocessing is done, you will have the data in e.g. `./out/{file_name}_preprocessed_eeg.fif`
+Once the preprocessing is done, you will have the data in e.g. `./out/02_preprocessed_eeg_data/byd/{file_name}_preprocessed_eeg.fif`
+
+## Compute inter-subject correlation (ISC)
+
+This is the scripted equivalent of the notebook's "Run ISC" cell: trains CCA,
+computes a per-window ISC timecourse and a surrogate chance-level band, and
+saves both plus a quick diagnostic plot. See [`docs/PIPELINE.md`](docs/PIPELINE.md)
+for the full set of options (segment ranges, permutation count, surrogate method).
+
+```bash
+uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 42
+```
 
 ## Interactive Inter-Subject Correlation Analysis notebook
 
-There is an interactive Jupyter notebook at [`notebooks/isc_analysis.ipynb`](notebooks/isc_analysis.ipynb) that has sections for loading and exploring the preprocessed data for each stimulus. You can see a preview of the notebook in [`notebooks/isc_analysis.html`](notebooks/isc_analysis.html).
+There is an interactive Jupyter notebook at [`notebooks/isc_analysis.ipynb`](notebooks/isc_analysis.ipynb) that has sections for loading and exploring the preprocessed data for each stimulus. You can see a preview of the notebook in [`notebooks/isc_analysis.html`](notebooks/isc_analysis.html). This is for interactive exploration (component topographies, applying a spatial filter as a live signal); `src/analysis/compute_isc.py` above is the reproducible way to generate ISC results for the rest of the pipeline.
 
 The notebook should use the ipykernel from the UV virtual environment, you can run it using the following command from the project directory (or open it in your editor/IDE of choice and select the uv venv kernel):
 
@@ -118,7 +134,7 @@ The notebook should use the ipykernel from the UV virtual environment, you can r
 uv run jupyter lab notebooks/isc_analysis.ipynb
 ```
 
-The notebook also can run the inter-subject correlation for a selected stimulus and (optionally) a subset of participants. The notebook displays the ISC results and the topographic projections of the components. It can also create a timeseries of the data projected through the weights of a selected component.
+The notebook can also run the inter-subject correlation for a selected stimulus and (optionally) a subset of participants, for quick interactive iteration. The notebook displays the ISC results and the topographic projections of the components. It can also create a timeseries of the data projected through the weights of a selected component.
 
 **Note:** The resulting time series units are not in microvolts, rather in relative units.
 

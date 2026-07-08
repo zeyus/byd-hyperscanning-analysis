@@ -16,7 +16,7 @@ import numpy as np
 from analysis import isc
 from data import eeg
 
-DATA_DIR = Path("out")
+DATA_DIR = Path("out/02_preprocessed_eeg_data/byd")
 STIMULUS: eeg.StimulusName = "BangBangYouAreDead"
 T0_S, T1_S = 300.0, 660.0  # comparison segment used in the thesis
 WINDOW_SEC, STEP_SEC = 5.0, 1.0
@@ -27,7 +27,7 @@ N_REPEATS = 10
 REFERENCE_N_PERMUTATIONS = 3200
 REFERENCE_REPEATS = 10
 
-OUT_PATH = Path("out/permutation_stability_results.json")
+OUT_PATH = Path("out/06_figures/permutation_stability_results.json")
 
 
 def load_segment() -> tuple[np.ndarray, int]:

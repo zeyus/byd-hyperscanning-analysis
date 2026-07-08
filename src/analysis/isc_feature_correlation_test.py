@@ -2,8 +2,8 @@
 
 For each CCA component and each requested frame-level feature (luminance,
 loudness, ...), computes the Pearson correlation between the ISC by-window
-timeseries and the feature interpolated onto the same window times (same
-approach as the notebook's correlate_features cell). Significance is assessed
+timeseries and the feature averaged over the same 5-second/1-step windows
+(via stats_utils.rolling_window_mean). Significance is assessed
 with an exact circular-shift permutation test: the feature series is
 circularly shifted (every one of the N-1 possible shifts) relative to the
 fixed ISC series and the correlation recomputed each time, building an exact
@@ -30,6 +30,8 @@ import pandas as pd
 
 from analysis import stats_utils
 
+STIM_KEYS = {"bangbangyouaredead": "byd", "storycorps_q&a": "sc"}
+
 DEFAULT_FEATURES = [
     "min_lum",
     "mean_lum",
@@ -43,16 +45,22 @@ DEFAULT_FEATURES = [
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--isc-dir", type=Path, default=Path("in"))
+    p.add_argument(
+        "--isc-dir",
+        type=Path,
+        default=None,
+        help="Defaults to out/03_ISC_results/{stim_key}/{range_tag}",
+    )
     p.add_argument(
         "--stimulus",
         required=True,
+        choices=sorted(STIM_KEYS),
         help="Filename stimulus key, e.g. bangbangyouaredead or storycorps_q&a",
     )
     p.add_argument(
         "--range-tag",
         default="full",
-        help="'full' or 'segment', matches the ISC filename",
+        help="'full' or 'segment', matches the ISC directory produced by compute_isc.py",
     )
     p.add_argument("--components", type=int, nargs="+", default=[1, 2, 3])
     p.add_argument("--feature-csv", type=Path, required=True)
@@ -61,14 +69,27 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--step-sec", type=float, default=1.0)
     p.add_argument("--fdr-alpha", type=float, default=0.05)
     p.add_argument(
-        "--output-csv", type=Path, default=Path("out/isc_feature_correlation_stats.csv")
+        "--output-csv",
+        type=Path,
+        default=None,
+        help="Defaults to out/04_feature_correlation/{stim_key}/isc_feature_correlation_stats.csv",
     )
     p.add_argument(
         "--output-plot",
         type=Path,
-        default=Path("out/isc_feature_correlation_stats.png"),
+        default=None,
+        help="Defaults to out/04_feature_correlation/{stim_key}/isc_feature_correlation_stats.png",
     )
-    return p.parse_args()
+    args = p.parse_args()
+
+    stim_key = STIM_KEYS[args.stimulus]
+    if args.isc_dir is None:
+        args.isc_dir = Path("out/03_ISC_results") / stim_key / args.range_tag
+    if args.output_csv is None:
+        args.output_csv = Path("out/04_feature_correlation") / stim_key / "isc_feature_correlation_stats.csv"
+    if args.output_plot is None:
+        args.output_plot = Path("out/04_feature_correlation") / stim_key / "isc_feature_correlation_stats.png"
+    return args
 
 
 def pearson_r(a: np.ndarray, b: np.ndarray) -> float:
@@ -81,7 +102,12 @@ def pearson_r(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def load_features(
-    feature_csv: Path, window_times: np.ndarray, features: list[str]
+    feature_csv: Path,
+    n_windows: int,
+    window_sec: float,
+    step_sec: float,
+    t0_s: float,
+    features: list[str],
 ) -> dict[str, np.ndarray]:
     feat_df = pd.read_csv(feature_csv)
     feat_df = feat_df.replace([np.inf, -np.inf], np.nan).ffill().bfill()
@@ -90,10 +116,13 @@ def load_features(
         if feat not in feat_df.columns:
             print(f"  Feature '{feat}' not found in {feature_csv} — skipping.")
             continue
-        out[feat] = np.interp(
-            window_times,
-            feat_df["timestamp"].values,  # pyright: ignore[reportCallIssue, reportArgumentType]
+        out[feat] = stats_utils.rolling_window_mean(
+            feat_df["timestamp"].values,  # pyright: ignore[reportArgumentType]
             feat_df[feat].values,  # pyright: ignore[reportArgumentType]
+            n_windows,
+            window_sec,
+            step_sec,
+            t0_s,
         )
     return out
 
@@ -101,23 +130,29 @@ def load_features(
 def main() -> None:
     args = parse_args()
 
+    meta = stats_utils.load_isc_meta(args.isc_dir)
+    window_sec = meta["window_sec"] if meta else args.window_sec
+    step_sec = meta["step_sec"] if meta else args.step_sec
+    t0_s = meta["t0_s"] if meta else 0.0
+
     rows = []
     r_matrix = np.full((len(args.components), len(args.features)), np.nan)
     p_matrix = np.full((len(args.components), len(args.features)), np.nan)
 
     feat_interp = None
     for ci, comp in enumerate(args.components):
-        isc_path = (
-            args.isc_dir
-            / f"isc_results_{args.stimulus}_{args.range_tag}_isc_component{comp}_bywindow.npy"
-        )
+        isc_path = args.isc_dir / f"isc_component{comp}_bywindow.npy"
         isc_values = stats_utils.load_isc_bywindow(isc_path)
-        window_times = stats_utils.reconstruct_window_times(
-            len(isc_values), args.window_sec, args.step_sec
-        )
 
         if feat_interp is None:
-            feat_interp = load_features(args.feature_csv, window_times, args.features)
+            feat_interp = load_features(
+                args.feature_csv,
+                len(isc_values),
+                window_sec,
+                step_sec,
+                t0_s,
+                args.features,
+            )
 
         for fi, feat in enumerate(args.features):
             if feat not in feat_interp:

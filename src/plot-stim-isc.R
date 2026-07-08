@@ -14,31 +14,31 @@ if (basename(current_dir) == "src") {
 isc_result_files <- c(
   "byd" = c(
     "c1" = c(
-      "chance" = "in/isc_results_bangbangyouaredead_full_chance_comp1.npy",
-      "isc" = "in/isc_results_bangbangyouaredead_full_isc_component1_bywindow.npy"
+      "chance" = "out/03_ISC_results/byd/full/chance_comp1.npy",
+      "isc" = "out/03_ISC_results/byd/full/isc_component1_bywindow.npy"
     ),
 
     "c2" = c(
-      "chance" = "in/isc_results_bangbangyouaredead_full_chance_comp2.npy",
-      "isc" = "in/isc_results_bangbangyouaredead_full_isc_component2_bywindow.npy"
+      "chance" = "out/03_ISC_results/byd/full/chance_comp2.npy",
+      "isc" = "out/03_ISC_results/byd/full/isc_component2_bywindow.npy"
     ),
     "c3" = c(
-      "chance" = "in/isc_results_bangbangyouaredead_full_chance_comp3.npy",
-      "isc" = "in/isc_results_bangbangyouaredead_full_isc_component3_bywindow.npy"
+      "chance" = "out/03_ISC_results/byd/full/chance_comp3.npy",
+      "isc" = "out/03_ISC_results/byd/full/isc_component3_bywindow.npy"
     )
   ),
   "sc" = c(
     "c1" = c(
-      "chance" = "in/isc_results_storycorps_q&a_full_chance_comp1.npy",
-      "isc" = "in/isc_results_storycorps_q&a_full_isc_component1_bywindow.npy"
+      "chance" = "out/03_ISC_results/sc/full/chance_comp1.npy",
+      "isc" = "out/03_ISC_results/sc/full/isc_component1_bywindow.npy"
     ),
     "c2" = c(
-      "chance" = "in/isc_results_storycorps_q&a_full_chance_comp2.npy",
-      "isc" = "in/isc_results_storycorps_q&a_full_isc_component2_bywindow.npy"
+      "chance" = "out/03_ISC_results/sc/full/chance_comp2.npy",
+      "isc" = "out/03_ISC_results/sc/full/isc_component2_bywindow.npy"
     ),
     "c3" = c(
-      "chance" = "in/isc_results_storycorps_q&a_full_chance_comp3.npy",
-      "isc" = "in/isc_results_storycorps_q&a_full_isc_component3_bywindow.npy"
+      "chance" = "out/03_ISC_results/sc/full/chance_comp3.npy",
+      "isc" = "out/03_ISC_results/sc/full/isc_component3_bywindow.npy"
     )
   )
 )
@@ -162,7 +162,7 @@ p1 <- df_isc_results |>
 
 
 ggsave(
-  "out/isc_results_and_chance_level_byd.png",
+  "out/06_figures/isc_results_and_chance_level_byd.png",
   plot = p1,
   width = 8,
   height = 8,
@@ -221,7 +221,7 @@ p2 <- df_isc_results |>
 
 
 ggsave(
-  "out/isc_results_and_chance_level_sc.png",
+  "out/06_figures/isc_results_and_chance_level_sc.png",
   plot = p2,
   width = 8,
   height = 8,

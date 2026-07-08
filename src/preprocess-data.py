@@ -261,7 +261,11 @@ def preprocess_eeg_data(
             bad_channels[stimulus].append((subject_id, bad_channel_names))
 
             file_code = eeg.STIMULI_FILE_CODES[stimulus]
-            out_file_path = Path(out_dir) / eeg.PREPROCESSED_FILE_FORMAT.format(
+            stim_out_dir = (
+                Path(out_dir) / "02_preprocessed_eeg_data" / eeg.STIMULUS_SHORT_KEYS[stimulus]
+            )
+            stim_out_dir.mkdir(parents=True, exist_ok=True)
+            out_file_path = stim_out_dir / eeg.PREPROCESSED_FILE_FORMAT.format(
                 file_code=file_code, subject_id=subject_id, stimulus=stimulus
             )
             if out_file_path.exists() and not force:

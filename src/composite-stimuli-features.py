@@ -5,6 +5,8 @@ from matplotlib import pyplot as plt
 from argparse import ArgumentParser
 import os
 
+from data import eeg
+
 stimuli = {
     "BangBangYouAreDead": "BangBangYouAreDead_SerialTrigInterval-1sec",
     "StoryCorps_Q&A": "StoryCorps_Q&A_SerialTrigInterval-1sec",
@@ -35,6 +37,9 @@ def load_and_interpolate_to_reference(
 
 def composite_av_features(data_dir: Path, out_dir: Path):
     for stimulus_name, file_base in stimuli.items():
+        stim_out_dir = out_dir / "01_extracted_stim_features" / eeg.STIMULUS_SHORT_KEYS[stimulus_name]  # pyright: ignore[reportArgumentType]
+        stim_out_dir.mkdir(parents=True, exist_ok=True)
+
         # Load video luminance first as the reference timebase
         lum_df = pd.read_csv(
             data_dir / f"{file_base}-{stimuli_suffixes['luminance']}.csv", header=None
@@ -63,7 +68,7 @@ def composite_av_features(data_dir: Path, out_dir: Path):
         composite_df = composite_df.merge(amp_df, on="timestamp")
         composite_df = composite_df.merge(loud_df, on="timestamp")
 
-        output_file = out_dir / f"{stimulus_name}_composite_frame_level_analysis.csv"
+        output_file = stim_out_dir / f"{stimulus_name}_composite_frame_level_analysis.csv"
         composite_df.to_csv(output_file, index=False)
         print(f"Saved composite frame-level analysis to {output_file}")
 
@@ -160,7 +165,7 @@ def composite_av_features(data_dir: Path, out_dir: Path):
         axes[2].grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plot_file = out_dir / f"{stimulus_name}_composite_time_series.png"
+        plot_file = stim_out_dir / f"{stimulus_name}_composite_time_series.png"
         plt.savefig(plot_file, dpi=150)
         print(f"Saved plot to {plot_file}")
         plt.close()
