@@ -199,6 +199,8 @@ def plot_series(x_grid, resampled, out_png="timeseries_comparison.png"):
         "lab_chance_estimate": "#9467bd",
     }
     for name, vals in resampled.items():
+        if name in ["lab_chance_estimate", "chance_estimate_timeseries"]:
+            continue  # skip plotting chance lines for clarity
         ax.plot(
             x_grid,
             vals,
@@ -253,14 +255,14 @@ def main():
     parser.add_argument(
         "--n-samples",
         type=int,
-        default=360,
-        help="Points to sample per SVG path (default 2000)",
+        default=3700,
+        help="Points to sample per SVG path (default 3740)",
     )
     parser.add_argument(
         "--n-grid",
         type=int,
-        default=360,
-        help="Points in the common resampling grid (default 1000)",
+        default=370,
+        help="Points in the common resampling grid (default 374)",
     )
     parser.add_argument("--output-csv", default="timeseries.csv")
     parser.add_argument("--output-png", default="timeseries_comparison.png")

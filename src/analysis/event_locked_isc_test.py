@@ -59,7 +59,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--step-sec", type=float, default=1.0)
     p.add_argument("--baseline-sec", type=float, default=5.0)
     p.add_argument("--response-sec", type=float, default=2.0)
-    p.add_argument("--buffer-sec", type=float, default=1.0)
     p.add_argument(
         "--tail", choices=["greater", "less", "two-sided"], default="greater"
     )
@@ -147,6 +146,11 @@ def main() -> None:
             f"Event group {args.event_group!r} not found. Available: {available}"
         )
     event_names = [e["event"] for e in group["events"]]
+    # onsets = (
+    #     np.array([float(e["event_time_s"]) for e in group["events"]])
+    #     if args.range_tag == "full"
+    #     else np.array([float(e["poulsen_time_s"]) for e in group["events"]])
+    # )
     onsets = np.array([float(e["event_time_s"]) for e in group["events"]])
     print(
         f"Loaded {len(event_names)} events for group '{args.event_group}': {event_names}"
@@ -165,7 +169,7 @@ def main() -> None:
         observed = per_event_stats(
             isc_values,
             window_times,
-            onsets - args.buffer_sec,
+            onsets,
             args.baseline_sec,
             args.response_sec,
         )
@@ -175,7 +179,7 @@ def main() -> None:
             return per_event_stats(
                 shifted,
                 window_times,
-                onsets - args.buffer_sec,
+                onsets,
                 args.baseline_sec,
                 args.response_sec,
             )
@@ -196,7 +200,6 @@ def main() -> None:
                 "component": comp,
                 "event_name": "__aggregate__",
                 "onset_s": np.nan,
-                "buffer_sec": args.buffer_sec,
                 "baseline_mean": np.nan,
                 "response_mean": np.nan,
                 "diff": observed_aggregate,
@@ -207,14 +210,14 @@ def main() -> None:
             baseline = windowed_mean(
                 isc_values,
                 window_times,
-                t0 - args.buffer_sec - args.baseline_sec,
-                t0 - args.buffer_sec,
+                t0 - args.baseline_sec,
+                t0,
             )
             response = windowed_mean(
                 isc_values,
                 window_times,
-                t0 - args.buffer_sec,
-                t0 + args.buffer_sec + args.response_sec,
+                t0,
+                t0 + args.response_sec,
             )
             rows.append(
                 {
@@ -222,7 +225,6 @@ def main() -> None:
                     "component": comp,
                     "event_name": name,
                     "onset_s": t0,
-                    "buffer_sec": args.buffer_sec,
                     "baseline_mean": baseline,
                     "response_mean": response,
                     "diff": diff,
@@ -299,7 +301,6 @@ def main() -> None:
                 "component",
                 "event_name",
                 "onset_s",
-                "buffer_sec",
                 "baseline_mean",
                 "response_mean",
                 "diff",

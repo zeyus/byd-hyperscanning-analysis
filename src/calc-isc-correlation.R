@@ -8,11 +8,11 @@ library(tidyverse)
 library(lme4)
 library(lmerTest)
 library(zoo)
-
+ts_length <- 370
 
 csv_isc_1sec_timeseries <- read_csv("../data/isc_comparison.csv")
 csv_isc_1sec_timeseries
-csv_isc_1sec_timeseries$second <- 1:360
+csv_isc_1sec_timeseries$second <- 1:ts_length
 
 dmochowsky_col <- "dmochowski_timeseries"
 poulsen_col <- "poulsen_timeseries"
@@ -24,7 +24,7 @@ kappel_dat_seg <- npyLoad(
 kappel_dat_seg_chance <- npyLoad(
   "../out/03_ISC_results/byd/segment/chance_comp1.npy"
 )
-
+length(kappel_dat_seg)
 kappel_dat_full <- npyLoad(
   "../out/03_ISC_results/byd/full/isc_component1_bywindow.npy"
 )
@@ -63,14 +63,14 @@ cat("Kappel et al vs Poulsen et al: ", kappel_corr_x_poulsen, "\n")
 # timeseries with the Dmochowski et al and Poulsen et al timeseries
 sliding_correlation <- rollapply(
   kappel_dat_full,
-  width = 360,
+  width = ts_length,
   FUN = function(x) cor(x, csv_isc_1sec_timeseries[[dmochowsky_col]]),
   by.column = FALSE,
   align = "center"
 )
 sliding_correlation_poulsen <- rollapply(
   kappel_dat_full,
-  width = 360,
+  width = ts_length,
   FUN = function(x) cor(x, csv_isc_1sec_timeseries[[poulsen_col]]),
   by.column = FALSE,
   align = "center"
@@ -194,7 +194,7 @@ label_vals <- c(
 )
 
 df_isc <- data.frame(
-  time = rep(1:360, 5),
+  time = rep(1:ts_length, 5),
   isc = c(
     csv_isc_1sec_timeseries[[poulsen_chance_col]],
     csv_isc_1sec_timeseries[[dmochowsky_col]],
@@ -204,7 +204,7 @@ df_isc <- data.frame(
   ),
   study = rep(
     label_vals,
-    each = 360
+    each = ts_length
   )
 )
 

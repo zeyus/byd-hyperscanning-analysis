@@ -83,12 +83,6 @@
         "poulsen_time": "3:00",
         "poulsen_time_s": 180,
         "event_time_s": 480
-      },
-      {
-        "event": "The abrupt ending",
-        "poulsen_time": "6:14",
-        "poulsen_time_s": 374,
-        "event_time_s": 674
       }
     ]
   },
