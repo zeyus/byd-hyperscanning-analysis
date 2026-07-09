@@ -7,12 +7,7 @@ permutation test on the ISC by-window timeseries itself: the whole ISC series
 is circularly shifted (every one of the N-1 possible shifts, since N is only
 ~200-1250 windows here) relative to the fixed event onsets, which preserves
 the series' own autocorrelation/marginal distribution while destroying any
-real alignment to the events. This is the same null-generating principle
-already used for the per-window chance-level band in isc.py
-(compute_surrogate_chance_level), just applied to the derived ISC timeseries
-rather than to subject-level EEG - and, because it shifts the continuous
-series rather than the sparse/uneven event timestamps, it sidesteps the
-ambiguity of what "shifting a handful of discrete onsets" would even mean.
+real alignment to the events.
 
 The event-average ("aggregate") statistic per component is the confirmatory,
 headline test. Individual per-event statistics are exploratory and are
@@ -63,7 +58,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--window-sec", type=float, default=5.0)
     p.add_argument("--step-sec", type=float, default=1.0)
     p.add_argument("--baseline-sec", type=float, default=5.0)
-    p.add_argument("--response-sec", type=float, default=5.0)
+    p.add_argument("--response-sec", type=float, default=2.0)
+    p.add_argument("--buffer-sec", type=float, default=1.0)
     p.add_argument(
         "--tail", choices=["greater", "less", "two-sided"], default="greater"
     )
@@ -86,9 +82,15 @@ def parse_args() -> argparse.Namespace:
     if args.isc_dir is None:
         args.isc_dir = Path("out/03_ISC_results") / stim_key / args.range_tag
     if args.output_csv is None:
-        args.output_csv = Path("out/05_event_correlation") / f"event_locked_isc_stats_{args.event_group}.csv"
+        args.output_csv = (
+            Path("out/05_event_correlation")
+            / f"event_locked_isc_stats_{args.event_group}.csv"
+        )
     if args.output_plot is None:
-        args.output_plot = Path("out/05_event_correlation") / f"event_locked_isc_stats_{args.event_group}.png"
+        args.output_plot = (
+            Path("out/05_event_correlation")
+            / f"event_locked_isc_stats_{args.event_group}.png"
+        )
     return args
 
 
@@ -138,9 +140,7 @@ def main() -> None:
     with open(args.events_json) as f:
         stimulus_groups = json.load(f)
     try:
-        group = next(
-            g for g in stimulus_groups if g["stimulus"] == args.event_group
-        )
+        group = next(g for g in stimulus_groups if g["stimulus"] == args.event_group)
     except StopIteration:
         available = [g["stimulus"] for g in stimulus_groups]
         raise ValueError(
@@ -153,9 +153,7 @@ def main() -> None:
     )
 
     rows = []
-    fig, axes = plt.subplots(
-        len(args.components), 1, figsize=(13, 3.2 * len(args.components)), squeeze=False
-    )
+    fig, axes = plt.subplots(squeeze=False)
 
     for ci, comp in enumerate(args.components):
         isc_path = args.isc_dir / f"isc_component{comp}_bywindow.npy"
@@ -165,13 +163,21 @@ def main() -> None:
         )
 
         observed = per_event_stats(
-            isc_values, window_times, onsets, args.baseline_sec, args.response_sec
+            isc_values,
+            window_times,
+            onsets - args.buffer_sec,
+            args.baseline_sec,
+            args.response_sec,
         )
         observed_aggregate = np.nanmean(observed)
 
         def statistic_fn(shifted: np.ndarray) -> np.ndarray:
             return per_event_stats(
-                shifted, window_times, onsets, args.baseline_sec, args.response_sec
+                shifted,
+                window_times,
+                onsets - args.buffer_sec,
+                args.baseline_sec,
+                args.response_sec,
             )
 
         null = stats_utils.circular_shift_null(
@@ -190,6 +196,7 @@ def main() -> None:
                 "component": comp,
                 "event_name": "__aggregate__",
                 "onset_s": np.nan,
+                "buffer_sec": args.buffer_sec,
                 "baseline_mean": np.nan,
                 "response_mean": np.nan,
                 "diff": observed_aggregate,
@@ -198,10 +205,16 @@ def main() -> None:
         )
         for name, t0, diff, p in zip(event_names, onsets, observed, p_events):
             baseline = windowed_mean(
-                isc_values, window_times, t0 - args.baseline_sec, t0
+                isc_values,
+                window_times,
+                t0 - args.buffer_sec - args.baseline_sec,
+                t0 - args.buffer_sec,
             )
             response = windowed_mean(
-                isc_values, window_times, t0, t0 + args.response_sec
+                isc_values,
+                window_times,
+                t0 - args.buffer_sec,
+                t0 + args.buffer_sec + args.response_sec,
             )
             rows.append(
                 {
@@ -209,6 +222,7 @@ def main() -> None:
                     "component": comp,
                     "event_name": name,
                     "onset_s": t0,
+                    "buffer_sec": args.buffer_sec,
                     "baseline_mean": baseline,
                     "response_mean": response,
                     "diff": diff,
@@ -217,7 +231,7 @@ def main() -> None:
             )
 
         # ── Plot ──────────────────────────────────────────────────────────
-        ax = axes[ci, 0]
+        ax = axes[0, 0]
         color = _COMP_COLORS[ci % len(_COMP_COLORS)]
         ax.plot(
             window_times, isc_values, color=color, linewidth=1.2, label=f"Comp {comp}"
@@ -232,7 +246,7 @@ def main() -> None:
         )
         ax.set_xlim(window_times[0], window_times[-1])
 
-    axes[-1, 0].set_xlabel("Time (s)")
+    axes[0, 0].set_xlabel("Time (s)")
 
     df = pd.DataFrame(rows)
     # FDR across all (component, event) pairs, excluding the aggregate rows
@@ -248,9 +262,9 @@ def main() -> None:
 
     # Annotate significance stars on the plot for per-event tests
     for ci, comp in enumerate(args.components):
-        ax = axes[ci, 0]
+        ax = axes[0, 0]
         comp_rows = df[(df["component"] == comp) & per_event_mask]
-        ymax = np.nanmax(axes[ci, 0].lines[0].get_ydata())
+        ymax = np.nanmax(axes[0, 0].lines[0].get_ydata())
         for _, r in comp_rows.iterrows():
             if r["significant"]:
                 ax.text(
@@ -285,6 +299,9 @@ def main() -> None:
                 "component",
                 "event_name",
                 "onset_s",
+                "buffer_sec",
+                "baseline_mean",
+                "response_mean",
                 "diff",
                 "p_exact",
                 "p_fdr",

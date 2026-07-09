@@ -132,7 +132,9 @@ def circular_shift_null(
     return np.stack(null_stats, axis=0)
 
 
-def exact_pvalue(observed: np.ndarray, null: np.ndarray, tail: str = "two-sided") -> np.ndarray:
+def exact_pvalue(
+    observed: np.ndarray, null: np.ndarray, tail: str = "two-sided"
+) -> np.ndarray:
     """Exact rank-based p-value: proportion of null values at least as extreme as observed.
 
     `null` has shape (n_shifts, ...) matching `observed`'s shape. The observed
@@ -147,11 +149,15 @@ def exact_pvalue(observed: np.ndarray, null: np.ndarray, tail: str = "two-sided"
     elif tail == "two-sided":
         count = np.sum(np.abs(null) >= np.abs(observed), axis=0)
     else:
-        raise ValueError(f"Unknown tail: {tail!r} (expected 'greater', 'less', 'two-sided')")
+        raise ValueError(
+            f"Unknown tail: {tail!r} (expected 'greater', 'less', 'two-sided')"
+        )
     return (count + 1) / (n + 1)
 
 
-def benjamini_hochberg(pvals: np.ndarray, alpha: float = 0.05) -> tuple[np.ndarray, np.ndarray]:
+def benjamini_hochberg(
+    pvals: np.ndarray, alpha: float = 0.05
+) -> tuple[np.ndarray, np.ndarray]:
     """Benjamini-Hochberg FDR correction.
 
     Returns (q_values, significant_mask), both matching `pvals`'s shape.

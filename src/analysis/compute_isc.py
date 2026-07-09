@@ -81,9 +81,7 @@ def main() -> None:
     stim_key = eeg.STIMULUS_SHORT_KEYS[args.stimulus]
     range_tag = "full" if args.t0 is None and args.t1 is None else "segment"
 
-    data_dir = args.data_dir or (
-        args.out_dir / "02_preprocessed_eeg_data" / stim_key
-    )
+    data_dir = args.data_dir or (args.out_dir / "02_preprocessed_eeg_data" / stim_key)
 
     isc_dir = args.out_dir / "03_ISC_results" / stim_key / range_tag
     fig_dir = args.out_dir / "06_figures"
@@ -104,7 +102,9 @@ def main() -> None:
     t1_s = args.t1 if args.t1 is not None else full_dur_s
     t0, t1 = int(t0_s * fs), min(int(t1_s * fs), min_t)
     data_array = np.array([a[:, t0:t1] for a in arrays])
-    print(f"data_array shape: {data_array.shape}, fs={fs}, range={range_tag} ({t0_s}-{t1_s}s)")
+    print(
+        f"data_array shape: {data_array.shape}, fs={fs}, range={range_tag} ({t0_s}-{t1_s}s)"
+    )
 
     print("Training CCA...")
     W, ISC_train = isc.train_cca({args.stimulus: data_array})
@@ -119,7 +119,9 @@ def main() -> None:
 
     chance_levels = None
     if args.compute_chance:
-        print(f"Computing surrogate chance level ({args.surrogate_method}, seed={args.seed})...")
+        print(
+            f"Computing surrogate chance level ({args.surrogate_method}, seed={args.seed})..."
+        )
         rng = np.random.default_rng(args.seed)
         chance_levels = isc.compute_surrogate_chance_level(
             data_array,
@@ -186,9 +188,7 @@ def main() -> None:
     ax_top.set_title(f"ISC per window — {args.stimulus} ({range_tag})")
     ax_top.legend(loc="upper right", fontsize=9)
 
-    im = ax_bottom.imshow(
-        ISC_bysubject[:n_comp], aspect="auto", cmap="RdBu_r"
-    )
+    im = ax_bottom.imshow(ISC_bysubject[:n_comp], aspect="auto", cmap="RdBu_r")
     ax_bottom.set_yticks(range(n_comp))
     ax_bottom.set_yticklabels([f"Comp {c + 1}" for c in range(n_comp)])
     ax_bottom.set_xlabel("Subject index (leave-one-out)")

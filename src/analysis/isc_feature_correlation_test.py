@@ -86,9 +86,17 @@ def parse_args() -> argparse.Namespace:
     if args.isc_dir is None:
         args.isc_dir = Path("out/03_ISC_results") / stim_key / args.range_tag
     if args.output_csv is None:
-        args.output_csv = Path("out/04_feature_correlation") / stim_key / "isc_feature_correlation_stats.csv"
+        args.output_csv = (
+            Path("out/04_feature_correlation")
+            / stim_key
+            / "isc_feature_correlation_stats.csv"
+        )
     if args.output_plot is None:
-        args.output_plot = Path("out/04_feature_correlation") / stim_key / "isc_feature_correlation_stats.png"
+        args.output_plot = (
+            Path("out/04_feature_correlation")
+            / stim_key
+            / "isc_feature_correlation_stats.png"
+        )
     return args
 
 
