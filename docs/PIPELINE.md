@@ -51,10 +51,10 @@ data/
    `06_figures/`
    ```bash
    # Full-recording analysis
-   uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 42
+   uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 2026
 
    # Segment analysis (explicit bounds, no implicit default)
-   uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 42 --t0 300 --t1 660
+   uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 2026 --t0 296.667 --t1 670.667
    ```
    `--seed` is required so surrogate chance-level results are reproducible.
    Run once per stimulus × range you need (StoryCorps currently only has a
@@ -93,12 +93,12 @@ plus this study's own ISC/chance timeseries on the matching BYD
 segment (300–660s, the "Poulsen segment") for side-by-side plotting. It is
 **not** produced by any step above — it only needs to be regenerated if the
 digitized reference curves change, or if the BYD segment ISC is recomputed
-(step 4, `--t0 300 --t1 660`) and you want the comparison CSV to reflect the
+(step 4, `--t0 296.667 --t1 670.667`) and you want the comparison CSV to reflect the
 new run:
 
 ```bash
 uv run python src/extract-timeseries.py sources/traced_timeseries_plain.svg \
-    --n-samples 360 --n-grid 360 \
+    --n-samples 369 --n-grid 369 \
     --lab-data out/03_ISC_results/byd/segment/isc_component1_bywindow.npy \
     --lab-chance out/03_ISC_results/byd/segment/chance_comp1.npy \
     --output-csv data/isc_comparison.csv \

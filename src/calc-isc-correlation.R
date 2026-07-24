@@ -8,7 +8,7 @@ library(tidyverse)
 library(lme4)
 library(lmerTest)
 library(zoo)
-ts_length <- 370
+ts_length <- 369
 
 csv_isc_1sec_timeseries <- read_csv("../data/isc_comparison.csv")
 csv_isc_1sec_timeseries

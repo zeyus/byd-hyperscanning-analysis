@@ -1,88 +1,88 @@
 [
   {
     "stimulus": "byd",
-    "poulsen_segment_offset_s": 300,
+    "poulsen_segment_offset_s": 296.667,
     "is_from_ref_study": true,
     "events": [
       {
         "event": "The boy shoots (or points gun at) mother (1)",
         "poulsen_time": "2:25",
         "poulsen_time_s": 145,
-        "event_time_s": 445
+        "event_time_s": 441.667
       },
       {
         "event": "The boy shoots (or points gun at) mother (2)",
         "poulsen_time": "3:00",
         "poulsen_time_s": 180,
-        "event_time_s": 480
+        "event_time_s": 476.667
       },
 
       {
         "event": "The boy shoots (or points gun at) people (1)",
         "poulsen_time": "2:10",
         "poulsen_time_s": 130,
-        "event_time_s": 430
+        "event_time_s": 426.667
       },
       {
         "event": "The boy shoots (or points gun at) people (2)",
         "poulsen_time": "3:30",
         "poulsen_time_s": 210,
-        "event_time_s": 510
+        "event_time_s": 506.667
       },
       {
         "event": "The boy shoots (or points gun at) people (3)",
         "poulsen_time": "5:30",
         "poulsen_time_s": 330,
-        "event_time_s": 630
+        "event_time_s": 626.667
       },
 
       {
         "event": "The boy loads another bullet into gun",
         "poulsen_time": "6:10",
         "poulsen_time_s": 370,
-        "event_time_s": 670
+        "event_time_s": 666.667
       },
       {
         "event": "The uncle discovers his gun is gone",
         "poulsen_time": "4:35",
         "poulsen_time_s": 275,
-        "event_time_s": 575
+        "event_time_s": 571.667
       },
       {
         "event": "The boy finds and loads gun (1)",
         "poulsen_time": "0:25",
         "poulsen_time_s": 25,
-        "event_time_s": 325
+        "event_time_s": 321.667
       },
       {
         "event": "The boy finds and loads gun (2)",
         "poulsen_time": "1:40",
         "poulsen_time_s": 100,
-        "event_time_s": 400
+        "event_time_s": 396.667
       },
       {
         "event": "The boy points at mirror or shoot towards camera (1)",
         "poulsen_time": "0:40",
         "poulsen_time_s": 40,
-        "event_time_s": 340
+        "event_time_s": 336.667
       },
       {
         "event": "The boy points at mirror or shoot towards camera (2)",
         "poulsen_time": "1:50",
         "poulsen_time_s": 110,
-        "event_time_s": 410
+        "event_time_s": 406.667
       },
       {
         "event": "The boy points at mirror or shoot towards camera (3)",
         "poulsen_time": "5:25",
         "poulsen_time_s": 325,
-        "event_time_s": 625
+        "event_time_s": 621.667
       },
       {
         "event": "When the father did not run after the boy",
         "poulsen_time": "3:00",
         "poulsen_time_s": 180,
-        "event_time_s": 480
+        "event_time_s": 476.667
       }
     ]
   },

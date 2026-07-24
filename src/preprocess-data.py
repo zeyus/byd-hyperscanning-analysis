@@ -124,7 +124,7 @@ def preprocess_eeg_data(
     data_dir: str,
     out_dir: str,
     lfreq: float = 0.5,
-    hfreq: float = 40.0,
+    hfreq: float = 45.0,
     regress_eog: bool = True,
     remove_outliers: bool = True,
     force: bool = False,
