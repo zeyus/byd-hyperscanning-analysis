@@ -127,6 +127,7 @@ def preprocess_eeg_data(
     hfreq: float = 45.0,
     regress_eog: bool = True,
     remove_outliers: bool = True,
+    outlier_threshold_mode: str = "reference",   # "reference" | "offset"
     force: bool = False,
     align_trigger_id: int | None = None,
 ) -> tuple[
@@ -232,7 +233,14 @@ def preprocess_eeg_data(
                 bad_samples_count = 0
                 for ch_idx in eeg_channel_indices:
                     iqd = percentiles[1, ch_idx] - percentiles[0, ch_idx]
-                    threshold = percentiles[1, ch_idx] + 4 * iqd
+                    # Dmochowski et al. (2012) reference implementation
+                    # (parralab.org/isc/isceeg.m), preprocess():
+                    #     data(abs(data) > kIQD*diff(prctile(data,[25 75]))) = NaN
+                    # i.e. the threshold is kIQD * IQD, with no Q75 offset.
+                    if outlier_threshold_mode == "reference":
+                        threshold = 4 * iqd
+                    else:  # "offset": the previous behaviour, strictly more permissive
+                        threshold = percentiles[1, ch_idx] + 4 * iqd
                     data = raw.get_data(picks=[ch_idx], verbose="error")[0]
                     bad_samples = np.where(abs(data) > threshold)[0]
 
@@ -342,6 +350,14 @@ if __name__ == "__main__":
         default=True,
     )
     parser.add_argument(
+        "--outlier-threshold-mode",
+        choices=["reference", "offset"],
+        default="reference",
+        help="'reference' = 4*IQD, matching Dmochowski et al.'s isceeg.m. "
+             "'offset' = Q75 + 4*IQD, the behaviour used for the results currently "
+             "written up in the thesis.",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="If set, overwrite existing files.",
@@ -380,6 +396,7 @@ if __name__ == "__main__":
         hfreq=args.hfreq,
         regress_eog=args.no_regress_eog,
         remove_outliers=args.no_remove_outliers,
+        outlier_threshold_mode=args.outlier_threshold_mode,
         force=args.force,
         align_trigger_id=args.align_trigger_id,
     )

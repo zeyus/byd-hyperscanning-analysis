@@ -18,7 +18,7 @@ from data import eeg
 
 DATA_DIR = Path("out/02_preprocessed_eeg_data/byd")
 STIMULUS: eeg.StimulusName = "BangBangYouAreDead"
-T0_S, T1_S = 300.0, 660.0  # comparison segment used in the thesis
+T0_S, T1_S = 296.667, 669.667  # comparison segment used in the thesis
 WINDOW_SEC, STEP_SEC = 5.0, 1.0
 N_COMP = 1
 
