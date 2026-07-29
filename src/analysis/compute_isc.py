@@ -117,6 +117,14 @@ def main() -> None:
     window_times = window_times + t0_s
     n_comp = min(args.n_comp, ISC.shape[0])
 
+    # print out number of subjects in ISC_bysubject with positive correlations
+    # and give the mean and range for the ISC values
+    # only for compononent 1!
+    n_pos = (ISC_bysubject[:, 0] > 0).sum()
+    print(f"Number of subjects with positive correlations: {n_pos}")
+    print(f"Mean ISC: {ISC_bysubject[:, 0].mean()}, range: {ISC_bysubject[:, 0].min()}-{ISC_bysubject[:, 0].max()}")
+
+
     chance_levels = None
     if args.compute_chance:
         print(

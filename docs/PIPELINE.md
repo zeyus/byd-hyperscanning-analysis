@@ -54,7 +54,7 @@ data/
    uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 2026
 
    # Segment analysis (explicit bounds, no implicit default)
-   uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 2026 --t0 296.667 --t1 670.667
+   uv run python src/analysis/compute_isc.py --stimulus BangBangYouAreDead --seed 2026 --t0 296.667 --t1 669.667
    ```
    `--seed` is required so surrogate chance-level results are reproducible.
    Run once per stimulus × range you need (StoryCorps currently only has a
@@ -63,8 +63,9 @@ data/
 5. **ISC × stimulus-feature correlation** → `04_feature_correlation/{byd,sc}/`
    ```bash
    uv run python src/analysis/isc_feature_correlation_test.py \
-       --stimulus bangbangyouaredead \
-       --feature-csv out/01_extracted_stim_features/byd/BangBangYouAreDead_composite_frame_level_analysis.csv
+             --stimulus bangbangyouaredead --range-tag full \
+             --feature "ebu_r128_M:out/01_extracted_stim_features/byd/BangBangYouAreDead_composite_frame_level_analysis.csv" \
+             --feature "ald:out/01_extracted_stim_features/byd/ald.csv"
    ```
 
 6. **ISC × emotion-event correlation** → `05_event_correlation/`
@@ -93,12 +94,12 @@ plus this study's own ISC/chance timeseries on the matching BYD
 segment (300–660s, the "Poulsen segment") for side-by-side plotting. It is
 **not** produced by any step above — it only needs to be regenerated if the
 digitized reference curves change, or if the BYD segment ISC is recomputed
-(step 4, `--t0 296.667 --t1 670.667`) and you want the comparison CSV to reflect the
+(step 4, `--t0 296.667 --t1 669.667`) and you want the comparison CSV to reflect the
 new run:
 
 ```bash
 uv run python src/extract-timeseries.py sources/traced_timeseries_plain.svg \
-    --n-samples 369 --n-grid 369 \
+    --n-samples 370 --n-grid 370 \
     --lab-data out/03_ISC_results/byd/segment/isc_component1_bywindow.npy \
     --lab-chance out/03_ISC_results/byd/segment/chance_comp1.npy \
     --output-csv data/isc_comparison.csv \

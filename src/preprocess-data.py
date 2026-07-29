@@ -225,33 +225,58 @@ def preprocess_eeg_data(
                 eeg_channel_indices = mne.pick_types(
                     raw.info, eeg=True, eog=False, meg=False, exclude="bads"
                 )
-                percentiles = np.percentile(
-                    abs(raw.get_data(verbose="error")),  # pyright: ignore[reportArgumentType]
-                    [25, 75],
-                    axis=1,
-                )
-                bad_samples_count = 0
-                for ch_idx in eeg_channel_indices:
-                    iqd = percentiles[1, ch_idx] - percentiles[0, ch_idx]
-                    # Dmochowski et al. (2012) reference implementation
-                    # (parralab.org/isc/isceeg.m), preprocess():
-                    #     data(abs(data) > kIQD*diff(prctile(data,[25 75]))) = NaN
-                    # i.e. the threshold is kIQD * IQD, with no Q75 offset.
-                    if outlier_threshold_mode == "reference":
-                        threshold = 4 * iqd
-                    else:  # "offset": the previous behaviour, strictly more permissive
-                        threshold = percentiles[1, ch_idx] + 4 * iqd
-                    data = raw.get_data(picks=[ch_idx], verbose="error")[0]
-                    bad_samples = np.where(abs(data) > threshold)[0]
+                data_all = raw.get_data(verbose="error")
 
+                # Dmochowski et al. (2012), isceeg.m -> preprocess():
+                #     kIQD = 4;
+                #     data(abs(data) > kIQD*repmat(diff(prctile(data,[25 75])),[T 1])) = NaN;
+                #
+                # prctile() is applied to `data`, which is SIGNED. So diff(prctile(...))
+                # is the interquartile range of the signed signal. Only the comparison
+                # uses abs(). Taking percentiles of abs(data) instead gives a spread
+                # roughly 1.62x smaller for a symmetric signal, and hence a threshold
+                # roughly 1.62x lower.
+                pct_signed = np.percentile(data_all, [25, 75], axis=1)
+                iqr_signed = pct_signed[1] - pct_signed[0]
+
+                pct_abs = np.percentile(np.abs(data_all), [25, 75], axis=1)
+                iqd_abs = pct_abs[1] - pct_abs[0]
+
+                halfwin = int(0.04 * raw.info["sfreq"])
+                n_times = data_all.shape[1]
+                zeroed_mask = np.zeros((data_all.shape[0], n_times), dtype=bool)
+
+                for ch_idx in eeg_channel_indices:
+                    if outlier_threshold_mode == "reference":
+                        # faithful to isceeg.m
+                        threshold = 4.0 * iqr_signed[ch_idx]
+                    elif outlier_threshold_mode == "abs_iqd":
+                        # 4*IQD on absolute values (what --outlier-threshold-mode
+                        # reference did before this fix); markedly more aggressive
+                        threshold = 4.0 * iqd_abs[ch_idx]
+                    elif outlier_threshold_mode == "offset":
+                        # the behaviour the current thesis results were computed under
+                        threshold = pct_abs[1, ch_idx] + 4.0 * iqd_abs[ch_idx]
+                    else:
+                        raise ValueError(f"unknown outlier_threshold_mode {outlier_threshold_mode!r}")
+
+                    data = data_all[ch_idx]
+                    bad_samples = np.where(np.abs(data) > threshold)[0]
+
+                    # Mark the +/-40 ms neighbourhood of every outlier. Building a mask
+                    # first means overlapping windows are counted once, not once each.
                     for sample in bad_samples:
-                        start = max(0, sample - int(0.04 * raw.info["sfreq"]))
-                        end = min(len(data), sample + int(0.04 * raw.info["sfreq"]))
-                        data[start:end] = 0
-                        bad_samples_count += end - start
+                        lo = max(0, sample - halfwin)
+                        hi = min(n_times, sample + halfwin)
+                        zeroed_mask[ch_idx, lo:hi] = True
+
+                    data[zeroed_mask[ch_idx]] = 0.0
                     raw._data[ch_idx, :] = data  # pyright: ignore[reportOptionalSubscript]
+
+                bad_samples_count = int(zeroed_mask.sum())
+                total_possible = int(len(eeg_channel_indices) * n_times)
                 zeroed_outlier_sample_count[stimulus].append(
-                    (subject_id, bad_samples_count)  # pyright: ignore[reportArgumentType]
+                    (subject_id, bad_samples_count, total_possible)  # pyright: ignore[reportArgumentType]
                 )
 
             log_power = np.log(np.std(raw.get_data(verbose="error"), axis=1))
@@ -289,7 +314,7 @@ def preprocess_eeg_data(
 
 def print_results(
     alignment_crops: dict[str, list[tuple[int, int, int]]],
-    zeroed_outlier_sample_count: dict[str, list[tuple[int, int]]],
+    zeroed_outlier_sample_count: dict[str, list[tuple[int, int, int]]],
     bad_channels: dict[str, list[tuple[int, list[str]]]],
 ):
     for stimulus in alignment_crops.keys():
@@ -298,8 +323,9 @@ def print_results(
         for subject_id, start_crop, end_crop in alignment_crops[stimulus]:
             print(f"  Subject {subject_id}: -{start_crop} start, -{end_crop} end")
         print("Zeroed outlier samples:")
-        for subject_id, count in zeroed_outlier_sample_count[stimulus]:
-            print(f"  Subject {subject_id}: {count} samples zeroed out")
+        for subject_id, count, total in zeroed_outlier_sample_count[stimulus]:
+            print(f"  Subject {subject_id}: {count} of {total} "
+                  f"channel-samples zeroed ({100*count/total:.1f}%)")
         print("Bad channels:")
         for subject_id, channels in bad_channels[stimulus]:
             print(
@@ -351,12 +377,17 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--outlier-threshold-mode",
-        choices=["reference", "offset"],
+        choices=["reference", "offset", "abs_iqd"],
         default="reference",
-        help="'reference' = 4*IQD, matching Dmochowski et al.'s isceeg.m. "
-             "'offset' = Q75 + 4*IQD, the behaviour used for the results currently "
-             "written up in the thesis.",
+        help=(
+            "reference: 4*IQR(signed data), faithful to Dmochowski et al.'s "
+            "isceeg.m. offset: Q75(abs)+4*IQD(abs), the criterion the current "
+            "thesis results were computed under. abs_iqd: 4*IQD(abs), which is "
+            "what the earlier 'reference' option computed and is markedly more "
+            "aggressive than either."
+        ),
     )
+
     parser.add_argument(
         "--force",
         action="store_true",

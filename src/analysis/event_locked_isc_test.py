@@ -158,6 +158,8 @@ def main() -> None:
 
     rows = []
     fig, axes = plt.subplots(squeeze=False)
+    fig.set_figwidth(10)
+    fig.set_figheight(3)
 
     for ci, comp in enumerate(args.components):
         isc_path = args.isc_dir / f"isc_component{comp}_bywindow.npy"
@@ -243,8 +245,7 @@ def main() -> None:
         ax.axhline(0, color="black", linewidth=0.5, linestyle=":")
         ax.set_ylabel("ISC")
         ax.set_title(
-            f"Comp {comp} — {args.stimulus} "
-            f"(aggregate diff={observed_aggregate:.4f}, p={p_aggregate:.4f})"
+            f"Emotional-events — {args.stimulus} "
         )
         ax.set_xlim(window_times[0], window_times[-1])
 
